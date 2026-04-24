@@ -55,7 +55,7 @@ TEXTS = {
     },
     "en": {
         "title": "DEAD AS DISCO - MOD MANAGER",
-        "header_sub": "MOD MANAGER // V2.0",
+        "header_sub": "MOD MANAGER // V3.0",
         "config_group": "Settings",
         "exe_lbl": "Executable:",
         "storage_lbl": "Storage:",
