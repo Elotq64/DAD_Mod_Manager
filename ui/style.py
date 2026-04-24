@@ -52,8 +52,9 @@ class NeonStyle:
         background-color: {DANGER};
     }}
 
-    QFrame#MainContainer {{
+    #MainContainer {{
         background-color: {BG_DARK};
+        border: 1px solid {BORDER};
     }}
 
     QGroupBox {{
@@ -108,6 +109,33 @@ class NeonStyle:
 
     QLineEdit:focus {{
         border: 1px solid {ACCENT_PURPLE};
+    }}
+
+    QComboBox {{
+        background-color: {BG_PANEL};
+        border: 1px solid {BORDER};
+        border-radius: 4px;
+        padding: 8px;
+        color: {TEXT_MAIN};
+    }}
+
+    QComboBox::drop-down {{
+        border: none;
+    }}
+
+    QComboBox::down-arrow {{
+        image: none;
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 5px solid {ACCENT};
+        margin-right: 10px;
+    }}
+
+    QComboBox QAbstractItemView {{
+        background-color: {BG_PANEL};
+        border: 1px solid {BORDER};
+        selection-background-color: {ACCENT};
+        selection-color: black;
     }}
 
     QPushButton {{

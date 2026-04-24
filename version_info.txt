@@ -1,7 +1,7 @@
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1,0,0,0),
-    prodvers=(1,0,0,0),
+    filevers=(3,0,0,0),
+    prodvers=(3,0,0,0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -16,11 +16,11 @@ VSVersionInfo(
         [
           StringStruct('CompanyName', 'Elotaku64'),
           StringStruct('FileDescription', 'Mod Manager para DAD'),
-          StringStruct('FileVersion', '1.0.0'),
+          StringStruct('FileVersion', '3.0.0'),
           StringStruct('InternalName', 'DAD_Mod_Manager'),
           StringStruct('OriginalFilename', 'DAD_Mod_Manager.exe'),
           StringStruct('ProductName', 'DAD Mod Manager'),
-          StringStruct('ProductVersion', '1.0.0')
+          StringStruct('ProductVersion', '3.0.0')
         ]
       )
     ]),

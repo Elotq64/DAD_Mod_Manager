@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QFileDialog, QMessageBox, QInputDialog)
 from PySide6.QtCore import Qt
 from ui.style import NeonStyle
-from ui.widgets import ModItemWidget, CustomTitleBar, HeaderSection
+from ui.widgets import ModItemWidget, CustomTitleBar, HeaderSection, AddModDialog, ModListHeader
 from core.i18n import TEXTS
 
 class MainWindow(QMainWindow):
@@ -58,7 +58,7 @@ class MainWindow(QMainWindow):
         self.header_title = QLabel("DEAD AS DISCO")
         self.header_title.setObjectName("HeaderTitle")
         
-        self.header_sub = QLabel("MOD MANAGER // V2.0")
+        self.header_sub = QLabel("MOD MANAGER // V3.0")
         self.header_sub.setObjectName("HeaderSub")
         self.header_sub.setStyleSheet(f"color: {NeonStyle.ACCENT_PURPLE}; font-weight: bold;")
         
@@ -114,6 +114,9 @@ class MainWindow(QMainWindow):
         
         self.mod_list_widget = QListWidget()
         self.mod_list_widget.setVerticalScrollMode(QListWidget.ScrollPerPixel)
+        
+        self.mod_header = ModListHeader(self.lang)
+        list_layout.addWidget(self.mod_header)
         list_layout.addWidget(self.mod_list_widget)
         
         self.lower_layout.addWidget(self.list_group, 1)
@@ -130,6 +133,10 @@ class MainWindow(QMainWindow):
         self.refresh_btn = QPushButton("ACTUALIZAR")
         self.refresh_btn.clicked.connect(self.refresh_all)
         actions_layout.addWidget(self.refresh_btn)
+        
+        self.add_mod_btn = QPushButton("AÑADIR MOD")
+        self.add_mod_btn.clicked.connect(self.on_add_mod)
+        actions_layout.addWidget(self.add_mod_btn)
         
         actions_layout.addStretch()
         
@@ -169,7 +176,10 @@ class MainWindow(QMainWindow):
         
         self.apply_btn.setText(t["apply_btn"])
         self.refresh_btn.setText(t["refresh_btn"])
+        self.add_mod_btn.setText(t["add_mod_btn"])
         self.play_btn.setText(t["play_btn"])
+        
+        self.mod_header.retranslate(self.lang)
         
         self.set_status(t["status_ready"])
     
@@ -216,13 +226,14 @@ class MainWindow(QMainWindow):
         available_mods = self.core.get_available_mods()
         active_mods = self.core.config.get("active_mods", [])
         
-        for mod_name in available_mods:
-            is_active = mod_name in active_mods
+        for mod_data in available_mods:
+            folder_name = mod_data["folder_name"]
+            is_active = folder_name in active_mods
             item = QListWidgetItem(self.mod_list_widget)
-            item_widget = ModItemWidget(mod_name, is_active)
+            item_widget = ModItemWidget(mod_data, is_active, self.lang)
             
             # Connect signals
-            item_widget.rename_requested.connect(lambda m=mod_name: self.on_rename_mod(m))
+            item_widget.rename_requested.connect(lambda f=folder_name: self.on_rename_mod(f))
             
             # Ensure item height is sufficient
             item.setSizeHint(item_widget.sizeHint())
@@ -250,9 +261,36 @@ class MainWindow(QMainWindow):
         for i in range(self.mod_list_widget.count()):
             item = self.mod_list_widget.item(i)
             widget = self.mod_list_widget.itemWidget(item)
+            
+            folder_name = widget.get_name()
+            current_type = widget.type_combo.currentData()
+            
+            # Update type in metadata
+            self.core.update_mod_metadata(folder_name, "type", current_type)
+            
             if widget.switch.isChecked():
-                selected_mods.append(widget.get_name())
+                selected_mods.append(folder_name)
         
+        # Conflict Check
+        type_counts = {"character": 0, "map": 0}
+        
+        # Collect types of selected mods
+        available_mods = {m["folder_name"]: m["type"] for m in self.core.get_available_mods()}
+        for mod_folder in selected_mods:
+            m_type = available_mods.get(mod_folder, "other")
+            if m_type in type_counts:
+                type_counts[m_type] += 1
+        
+        # Check for multiple active of same critical type
+        conflicts = [t for t, count in type_counts.items() if count > 1]
+        if conflicts:
+            conflict_names = [t["type_" + c] for c in conflicts] # Get translated names
+            msg = t["msg_conflict_warn"].format(", ".join(conflict_names))
+            res = QMessageBox.warning(self, t["msg_conflict_title"], msg, 
+                                     QMessageBox.Yes | QMessageBox.No)
+            if res == QMessageBox.No:
+                return
+
         try:
             self.set_status(t["status_sync"])
             self.core.sync_mods(selected_mods)
@@ -262,6 +300,38 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
             self.set_status(t["status_error"])
+
+    def on_add_mod(self):
+        t = TEXTS[self.lang]
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, t["add_mod_title"], "", "Archives (*.zip *.rar)"
+        )
+        if not file_path:
+            return
+
+        default_name = os.path.splitext(os.path.basename(file_path))[0]
+        dialog = AddModDialog(default_name, self.lang, self)
+        if dialog.exec():
+            mod_name, mod_type = dialog.get_data()
+            if not mod_name:
+                return
+            
+            try:
+                self.set_status(t["status_sync"]) 
+                self.core.install_mod(file_path, mod_name, mod_type)
+                self.refresh_all()
+                self.set_status(t["status_success"])
+            except Exception as e:
+                error_msg = str(e)
+                if "rarfile" in error_msg:
+                    error_msg = t["error_rar_library"]
+                elif "No valid files" in error_msg:
+                    error_msg = t["error_no_valid_files"]
+                elif "Mod already exists" in error_msg:
+                    error_msg = t["error_already_exists"]
+                
+                QMessageBox.critical(self, "Error", error_msg)
+                self.set_status(t["status_error"])
 
     def on_play(self):
         appid = self.core.config.get("steam_appid")

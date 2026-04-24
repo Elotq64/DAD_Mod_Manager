@@ -23,9 +23,8 @@ share/python-wheels/
 MANIFEST
 
 # PyInstaller
-#  Usually these files are written by a python script, before distx64 etc. are created
-*.manifest
-*.spec
+# We keep .spec files so others can build the project exactly as intended
+# *.spec is removed from here to allow tracking
 
 # Installer logs
 pip-log.txt
@@ -62,6 +61,8 @@ venv.bak/
 *.swo
 
 # Local Config (Keep your personal paths private)
+# The application saves its config in the user's Documents folder, 
+# so any local config.json in the root is likely for testing and should be ignored.
 config.json
 
 # OS files

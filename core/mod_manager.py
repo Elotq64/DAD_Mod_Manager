@@ -2,6 +2,11 @@ import os
 import shutil
 import json
 import re
+import zipfile
+try:
+    import rarfile
+except ImportError:
+    rarfile = None
 from pathlib import Path
 from collections import defaultdict
 
@@ -95,17 +100,81 @@ class ModManagerCore:
         self.save_config()
 
     def get_available_mods(self):
-        storage_path = self.config.get("mods_storage_path")
-        if not storage_path or not os.path.exists(storage_path):
+        storage_path_str = self.config.get("mods_storage_path")
+        if not storage_path_str or not os.path.exists(storage_path_str):
             return []
-        p = Path(storage_path)
-        mods = []
-        if p.exists() and p.is_dir():
-            for d in p.iterdir():
-                if d.is_dir():
-                    if list(d.glob("*.pak")):
-                        mods.append(d.name)
-        return sorted(mods)
+        
+        storage_path = Path(storage_path_str)
+        mods_metadata = []
+        
+        if storage_path.exists() and storage_path.is_dir():
+            for d in storage_path.iterdir():
+                if d.is_dir() and not d.name.startswith("_"):
+                    # Check if it's a mod folder (contains .pak or mod.json)
+                    if list(d.glob("*.pak")) or (d / "mod.json").exists():
+                        metadata = self._ensure_mod_json(d)
+                        if metadata:
+                            # Sync enabled status with config.json active_mods
+                            metadata["enabled"] = d.name in self.config.get("active_mods", [])
+                            # Add folder name for reference
+                            metadata["folder_name"] = d.name
+                            mods_metadata.append(metadata)
+        
+        return sorted(mods_metadata, key=lambda x: x["name"])
+
+    def _ensure_mod_json(self, mod_path):
+        json_path = mod_path / "mod.json"
+        mod_folder_name = mod_path.name
+        
+        default_meta = {
+            "name": mod_folder_name,
+            "type": "other",
+            "enabled": False
+        }
+        
+        if json_path.exists():
+            try:
+                with open(json_path, "r", encoding='utf-8') as f:
+                    data = json.load(f)
+                    # Merge with defaults to ensure all fields exist
+                    for k, v in data.items():
+                        default_meta[k] = v
+            except Exception:
+                pass # Will overwrite with defaults if corrupt
+        
+        # Save back to ensure it exists and is clean
+        self.save_mod_json(mod_folder_name, default_meta)
+        return default_meta
+
+    def save_mod_json(self, mod_folder_name, metadata):
+        storage_path_str = self.config.get("mods_storage_path")
+        if not storage_path_str: return
+        
+        # Clean folder_name from metadata before saving
+        save_data = metadata.copy()
+        if "folder_name" in save_data: del save_data["folder_name"]
+        
+        json_path = Path(storage_path_str) / mod_folder_name / "mod.json"
+        try:
+            with open(json_path, "w", encoding='utf-8') as f:
+                json.dump(save_data, f, indent=4)
+        except Exception:
+            pass
+
+    def update_mod_metadata(self, mod_folder_name, key, value):
+        storage_path_str = self.config.get("mods_storage_path")
+        if not storage_path_str: return
+        
+        json_path = Path(storage_path_str) / mod_folder_name / "mod.json"
+        if json_path.exists():
+            try:
+                with open(json_path, "r", encoding='utf-8') as f:
+                    data = json.load(f)
+                data[key] = value
+                with open(json_path, "w", encoding='utf-8') as f:
+                    json.dump(data, f, indent=4)
+            except Exception:
+                pass
 
     def rename_mod(self, old_name, new_name):
         storage_path_str = self.config.get("mods_storage_path")
@@ -117,6 +186,8 @@ class ModManagerCore:
         
         if old_path.exists() and not new_path.exists():
             os.rename(old_path, new_path)
+            # Update mod.json internal name
+            self.update_mod_metadata(new_name, "name", new_name)
             # Update active mods list
             if old_name in self.config["active_mods"]:
                 idx = self.config["active_mods"].index(old_name)
@@ -178,5 +249,66 @@ class ModManagerCore:
                 for f in mod_dir.iterdir():
                     if f.is_file() and f.suffix.lower() in {'.pak', '.ucas', '.utoc'}:
                         shutil.copy2(f, self.active_mods_path / f.name)
+        
         self.config["active_mods"] = selected_mods
         self.save_config()
+
+        # Sync 'enabled' status in mod.json for all mods
+        for d in storage_path.iterdir():
+            if d.is_dir() and (d / "mod.json").exists():
+                is_enabled = d.name in selected_mods
+                self.update_mod_metadata(d.name, "enabled", is_enabled)
+
+    def install_mod(self, archive_path, mod_name, mod_type):
+        storage_path_str = self.config.get("mods_storage_path")
+        if not storage_path_str:
+            raise ValueError("No storage path configured")
+        
+        storage_path = Path(storage_path_str)
+        target_dir = storage_path / mod_name
+        
+        if target_dir.exists():
+            raise ValueError("Mod already exists")
+
+        # Temp extraction dir
+        temp_dir = storage_path / "_temp_extract"
+        if temp_dir.exists(): shutil.rmtree(temp_dir)
+        temp_dir.mkdir(parents=True)
+
+        try:
+            # Extract
+            if archive_path.lower().endswith('.zip'):
+                with zipfile.ZipFile(archive_path, 'r') as zip_ref:
+                    zip_ref.extractall(temp_dir)
+            elif archive_path.lower().endswith('.rar'):
+                if not rarfile:
+                    raise ImportError("rarfile library not installed")
+                with rarfile.RarFile(archive_path) as rf:
+                    rf.extractall(temp_dir)
+            else:
+                raise ValueError("Unsupported archive format")
+
+            # Scan for valid files
+            valid_ext = {".pak", ".ucas", ".utoc"}
+            found_files = []
+            for root, _, files in os.walk(temp_dir):
+                for f in files:
+                    if any(f.lower().endswith(ext) for ext in valid_ext):
+                        found_files.append(Path(root) / f)
+
+            if not found_files:
+                raise ValueError("No valid files found")
+
+            # Create mod folder and move files
+            target_dir.mkdir(parents=True)
+            for f in found_files:
+                shutil.move(str(f), str(target_dir / f.name))
+
+            # Save metadata
+            metadata = {"name": mod_name, "type": mod_type}
+            with open(target_dir / "mod.json", "w", encoding='utf-8') as f:
+                json.dump(metadata, f, indent=4)
+
+        finally:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
