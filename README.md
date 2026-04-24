@@ -113,3 +113,13 @@ If you're interested in contributing — whether it's code, UI/UX improvements, 
 Even small contributions are appreciated.
 
 ---
+
+## Support the Project
+
+If you enjoy this project or find it useful, consider supporting its development:
+
+- ☕ PayPal: https://paypal.me/elotq64
+
+Your support helps keep the project alive and improving.
+
+---
