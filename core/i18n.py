@@ -1,0 +1,47 @@
+
+TEXTS = {
+    "es": {
+        "title": "DEAD AS DISCO - GESTOR DE MODS",
+        "header_sub": "GESTOR DE MODS // V2.0",
+        "config_group": "Configuración",
+        "exe_lbl": "Ejecutable:",
+        "storage_lbl": "Almacenamiento:",
+        "mods_group": "Mods Disponibles",
+        "apply_btn": "APLICAR CAMBIOS",
+        "refresh_btn": "ACTUALIZAR",
+        "play_btn": "LANZAR JUEGO",
+        "status_ready": "Sistema listo",
+        "status_sync": "Sincronizando mods...",
+        "status_success": "Cambios aplicados con éxito.",
+        "status_error": "Error al sincronizar",
+        "msg_error_path": "No se detectó la estructura de carpetas necesaria.",
+        "msg_migration": "¿Se detectaron mods en la carpeta del juego. ¿Deseas migrarlos?",
+        "msg_rename_title": "Renombrar Mod",
+        "msg_rename_lbl": "Nuevo nombre para {}:",
+        "tooltip_rename": "Renombrar Mod",
+        "steam_detected": "Steam detectado (AppID: {})",
+        "lang_btn": "ES"
+    },
+    "en": {
+        "title": "DEAD AS DISCO - MOD MANAGER",
+        "header_sub": "MOD MANAGER // V2.0",
+        "config_group": "Settings",
+        "exe_lbl": "Executable:",
+        "storage_lbl": "Storage:",
+        "mods_group": "Available Mods",
+        "apply_btn": "APPLY CHANGES",
+        "refresh_btn": "REFRESH",
+        "play_btn": "LAUNCH GAME",
+        "status_ready": "System ready",
+        "status_sync": "Syncing mods...",
+        "status_success": "Changes applied successfully.",
+        "status_error": "Sync error",
+        "msg_error_path": "Required folder structure not detected.",
+        "msg_migration": "Mods detected in game folder. Migrate them?",
+        "msg_rename_title": "Rename Mod",
+        "msg_rename_lbl": "New name for {}:",
+        "tooltip_rename": "Rename Mod",
+        "steam_detected": "Steam detected (AppID: {})",
+        "lang_btn": "EN"
+    }
+}
