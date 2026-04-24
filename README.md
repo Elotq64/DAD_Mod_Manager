@@ -6,10 +6,12 @@
 > Migrated from Tkinter to **PySide6** for a premium *Neon Dark* high-tech experience.
 
 ---
+## Download
 
-## Quick Start (For Everyone)
+You can download the latest version here:
+https://github.com/Elotq64/DAD_Mod_Manager/releases
 
-Even if you've never used Python, you can get this running in minutes:
+## Quick Start for compiling or installing this tool for yourself
 
 ### 1. Prerequisites
 - **Python 3.8 or newer**: [Download here](https://www.python.org/downloads/) (Make sure to check **"Add Python to PATH"** during installation).
