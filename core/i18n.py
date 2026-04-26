@@ -2,7 +2,7 @@
 TEXTS = {
     "es": {
         "title": "DEAD AS DISCO - GESTOR DE MODS",
-        "header_sub": "GESTOR DE MODS // V3.0",
+        "header_sub": "GESTOR DE MODS // V4.0",
         "config_group": "Configuración",
         "exe_lbl": "Ejecutable:",
         "storage_lbl": "Almacenamiento:",
@@ -51,11 +51,18 @@ TEXTS = {
         "info_source_text": "El proyecto está disponible públicamente en GitHub para aquellos interesados en el código fuente.",
         "info_thanks": "Agradecimientos especiales a todos los que contribuyeron al proyecto.",
         "info_github": "Visitar GitHub",
-        "info_close": "Cerrar"
+        "info_close": "Cerrar",
+        "nav_categories": "CATEGORÍAS",
+        "nav_actions": "ACCIONES",
+        "nav_mods": "MODS",
+        "nav_songs": "CANCIONES",
+        "import_song_btn": "IMPORTAR CANCIÓN",
+        "importing_msg": "IMPORTANDO...",
+        "wait_msg": "Por favor espera mientras procesamos el audio..."
     },
     "en": {
         "title": "DEAD AS DISCO - MOD MANAGER",
-        "header_sub": "MOD MANAGER // V3.0",
+        "header_sub": "MOD MANAGER // V4.0",
         "config_group": "Settings",
         "exe_lbl": "Executable:",
         "storage_lbl": "Storage:",
@@ -91,6 +98,13 @@ TEXTS = {
         "header_mod_rename": "EDIT",
         "header_mod_status": "STATUS",
         "msg_conflict_title": "Conflict Detected",
-        "msg_conflict_warn": "Warning: You have more than one mod of type '{}' active. This could cause the game to crash. Do you want to continue?"
+        "msg_conflict_warn": "Warning: You have more than one mod of type '{}' active. This could cause the game to crash. Do you want to continue?",
+        "nav_categories": "CATEGORIES",
+        "nav_actions": "ACTIONS",
+        "nav_mods": "MODS",
+        "nav_songs": "SONGS",
+        "import_song_btn": "IMPORT SONG",
+        "importing_msg": "IMPORTING...",
+        "wait_msg": "Please wait while we process your audio..."
     }
 }

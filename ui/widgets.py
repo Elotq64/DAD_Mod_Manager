@@ -131,6 +131,13 @@ class CustomTitleBar(QWidget):
         self.min_btn.setFixedSize(45, 40)
         self.min_btn.clicked.connect(self.window().showMinimized)
         self.layout.addWidget(self.min_btn)
+
+        # Maximize Button
+        self.max_btn = QPushButton("1") # Marlett '1' is maximize
+        self.max_btn.setObjectName("TitleButton")
+        self.max_btn.setFixedSize(45, 40)
+        self.max_btn.clicked.connect(self.toggle_maximize)
+        self.layout.addWidget(self.max_btn)
         
         # Close Button
         self.close_btn = QPushButton("r") # Marlett 'r' is close
@@ -140,6 +147,25 @@ class CustomTitleBar(QWidget):
         self.close_btn.clicked.connect(self.window().close)
         self.layout.addWidget(self.close_btn)
         
+    def toggle_maximize(self):
+        if self.window().isMaximized():
+            self.window().showNormal()
+            self.max_btn.setText("1")
+        else:
+            self.window().showMaximized()
+            self.max_btn.setText("2")
+        
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.start_pos = event.globalPosition().toPoint()
+
+    def mouseMoveEvent(self, event):
+        if self.start_pos:
+            delta = event.globalPosition().toPoint() - self.start_pos
+            self.window().move(self.window().pos() + delta)
+            self.start_pos = event.globalPosition().toPoint()
+
+    def mouseReleaseEvent(self, event):
         self.start_pos = None
 
 class AddModDialog(QDialog):
@@ -246,25 +272,26 @@ class ModListHeader(QWidget):
         
         self.name_lbl = QLabel(t["header_mod_name"])
         self.name_lbl.setStyleSheet(style)
-        self.layout.addWidget(self.name_lbl, 1)
+        self.name_lbl.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        self.layout.addWidget(self.name_lbl, 1, Qt.AlignVCenter)
         
         self.type_lbl = QLabel(t["header_mod_type"])
         self.type_lbl.setStyleSheet(style)
         self.type_lbl.setFixedWidth(130)
         self.type_lbl.setAlignment(Qt.AlignCenter)
-        self.layout.addWidget(self.type_lbl)
+        self.layout.addWidget(self.type_lbl, 0, Qt.AlignVCenter)
         
         self.rename_lbl = QLabel(t["header_mod_rename"])
         self.rename_lbl.setStyleSheet(style)
         self.rename_lbl.setFixedWidth(40)
         self.rename_lbl.setAlignment(Qt.AlignCenter)
-        self.layout.addWidget(self.rename_lbl)
+        self.layout.addWidget(self.rename_lbl, 0, Qt.AlignVCenter)
         
         self.status_lbl = QLabel(t["header_mod_status"])
         self.status_lbl.setStyleSheet(style)
         self.status_lbl.setFixedWidth(60)
         self.status_lbl.setAlignment(Qt.AlignCenter)
-        self.layout.addWidget(self.status_lbl)
+        self.layout.addWidget(self.status_lbl, 0, Qt.AlignVCenter)
 
     def retranslate(self, lang):
         self.lang = lang
@@ -297,7 +324,7 @@ class ModItemWidget(QWidget):
         self.name_label = QLabel(self.mod_name)
         self.name_label.setStyleSheet("font-weight: bold; font-size: 11pt;")
         self.name_label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
-        self.layout.addWidget(self.name_label, 1)
+        self.layout.addWidget(self.name_label, 1, Qt.AlignVCenter)
 
         # Type Dropdown
         self.type_combo = QComboBox()
@@ -309,7 +336,7 @@ class ModItemWidget(QWidget):
         idx = self.type_combo.findData(mod_metadata.get("type", "other"))
         if idx >= 0: self.type_combo.setCurrentIndex(idx)
         self.type_combo.currentIndexChanged.connect(self._on_type_changed)
-        self.layout.addWidget(self.type_combo)
+        self.layout.addWidget(self.type_combo, 0, Qt.AlignVCenter)
 
         # Rename Button
         self.rename_btn = QPushButton("✎")
@@ -317,7 +344,7 @@ class ModItemWidget(QWidget):
         self.rename_btn.setCursor(Qt.PointingHandCursor)
         self.rename_btn.setToolTip(t.get("tooltip_rename", "Renombrar Mod"))
         self.rename_btn.clicked.connect(self.rename_requested.emit)
-        self.layout.addWidget(self.rename_btn)
+        self.layout.addWidget(self.rename_btn, 0, Qt.AlignVCenter)
 
         # Toggle Switch (wrapped in fixed-width widget for header alignment)
         self.switch_container = QWidget()
@@ -333,7 +360,7 @@ class ModItemWidget(QWidget):
         self.switch.clicked.connect(lambda: self.toggled.emit(self.switch.isChecked()))
         
         switch_layout.addWidget(self.switch)
-        self.layout.addWidget(self.switch_container)
+        self.layout.addWidget(self.switch_container, 0, Qt.AlignVCenter)
 
     def _on_type_changed(self, index):
         new_type = self.type_combo.itemData(index)

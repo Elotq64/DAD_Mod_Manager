@@ -1,2 +1,4 @@
 PySide6
 rarfile
+pydub
+send2trash

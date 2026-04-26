@@ -2,10 +2,11 @@ import os
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QLabel, QLineEdit, QPushButton, QGroupBox, 
                              QListWidget, QListWidgetItem, QStatusBar, 
-                             QFileDialog, QMessageBox, QInputDialog)
-from PySide6.QtCore import Qt
+                             QFileDialog, QMessageBox, QInputDialog, QStackedWidget, QSizeGrip)
+from PySide6.QtCore import Qt, QRect
 from ui.style import NeonStyle
 from ui.widgets import ModItemWidget, CustomTitleBar, HeaderSection, AddModDialog, ModListHeader
+from ui.songs.songs_page import SongsPage
 from core.i18n import TEXTS
 
 class MainWindow(QMainWindow):
@@ -14,10 +15,12 @@ class MainWindow(QMainWindow):
         self.core = core
         self.lang = self.core.config.get("language", "es")
         self.setWindowTitle("DEAD AS DISCO - MOD MANAGER")
-        self.setMinimumSize(800, 750)
+        self.setMinimumSize(1000, 850)
+        self.resize(1000, 850)
         
         # Frameless window
         self.setWindowFlags(Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_Hover)
         
         # Apply Global Stylesheet
         self.setStyleSheet(NeonStyle.QSS)
@@ -30,41 +33,138 @@ class MainWindow(QMainWindow):
         self.central_widget.setObjectName("MainContainer")
         self.setCentralWidget(self.central_widget)
         
-        self.main_vbox = QVBoxLayout(self.central_widget)
-        self.main_vbox.setContentsMargins(0, 0, 0, 0)
-        self.main_vbox.setSpacing(0)
+        # Root Layout: Horizontal (Sidebar | Content)
+        self.root_layout = QHBoxLayout(self.central_widget)
+        self.root_layout.setContentsMargins(0, 0, 0, 0)
+        self.root_layout.setSpacing(0)
+        
+        # --- SIDEBAR (LEFT) ---
+        self.sidebar = QWidget()
+        self.sidebar.setObjectName("Sidebar")
+        self.sidebar.setFixedWidth(240)
+        self.sidebar.setStyleSheet(f"""
+            QWidget#Sidebar {{
+                background-color: #0a0a0a;
+                border-right: 1px solid {NeonStyle.ACCENT}33;
+            }}
+        """)
+        
+        sidebar_layout = QVBoxLayout(self.sidebar)
+        sidebar_layout.setContentsMargins(20, 20, 20, 20)
+        sidebar_layout.setSpacing(15)
+        
+        # Sidebar Branding
+        brand_layout = QVBoxLayout()
+        self.brand_title = QLabel("MOD MANAGER")
+        self.brand_title.setStyleSheet(f"color: {NeonStyle.ACCENT}; font-weight: bold; font-size: 14pt; letter-spacing: 2px;")
+        self.brand_sub = QLabel("V4.0 // STABLE")
+        self.brand_sub.setStyleSheet(f"color: {NeonStyle.ACCENT_PURPLE}; font-size: 8pt; font-weight: bold; letter-spacing: 1px;")
+        brand_layout.addWidget(self.brand_title)
+        brand_layout.addWidget(self.brand_sub)
+        sidebar_layout.addLayout(brand_layout)
+        
+        sidebar_layout.addSpacing(30)
+        
+        # Navigation Section
+        self.nav_label = QLabel("CATEGORIES")
+        self.nav_label.setStyleSheet(f"color: {NeonStyle.TEXT_DIM}; font-size: 8pt; font-weight: bold;")
+        sidebar_layout.addWidget(self.nav_label)
+        
+        self.mods_tab_btn = QPushButton("MODS")
+        self.mods_tab_btn.setCheckable(True)
+        self.mods_tab_btn.setChecked(True)
+        self.mods_tab_btn.setMinimumHeight(45)
+        self.mods_tab_btn.clicked.connect(lambda: self.switch_page(0))
+        sidebar_layout.addWidget(self.mods_tab_btn)
+        
+        self.songs_tab_btn = QPushButton("SONGS")
+        self.songs_tab_btn.setCheckable(True)
+        self.songs_tab_btn.setMinimumHeight(45)
+        self.songs_tab_btn.clicked.connect(lambda: self.switch_page(1))
+        sidebar_layout.addWidget(self.songs_tab_btn)
+        
+        sidebar_layout.addSpacing(30)
+        
+        # Contextual Actions Section
+        self.actions_label = QLabel("ACTIONS")
+        self.actions_label.setStyleSheet(f"color: {NeonStyle.TEXT_DIM}; font-size: 8pt; font-weight: bold;")
+        sidebar_layout.addWidget(self.actions_label)
+        
+        self.actions_stack = QStackedWidget()
+        
+        # Actions: Mods
+        self.mod_actions_widget = QWidget()
+        mod_actions_layout = QVBoxLayout(self.mod_actions_widget)
+        mod_actions_layout.setContentsMargins(0, 0, 0, 0)
+        mod_actions_layout.setSpacing(10)
+        
+        self.apply_btn = QPushButton("APLICAR CAMBIOS")
+        self.apply_btn.setMinimumHeight(40)
+        self.apply_btn.clicked.connect(self.on_apply)
+        mod_actions_layout.addWidget(self.apply_btn)
+        
+        self.refresh_btn = QPushButton("ACTUALIZAR")
+        self.refresh_btn.setMinimumHeight(40)
+        self.refresh_btn.clicked.connect(self.refresh_all)
+        mod_actions_layout.addWidget(self.refresh_btn)
+        
+        self.add_mod_btn = QPushButton("AÑADIR MOD")
+        self.add_mod_btn.setMinimumHeight(40)
+        self.add_mod_btn.clicked.connect(self.on_add_mod)
+        mod_actions_layout.addWidget(self.add_mod_btn)
+        
+        self.actions_stack.addWidget(self.mod_actions_widget)
+        
+        # Actions: Songs
+        self.song_actions_widget = QWidget()
+        song_actions_layout = QVBoxLayout(self.song_actions_widget)
+        song_actions_layout.setContentsMargins(0, 0, 0, 0)
+        song_actions_layout.setSpacing(10)
+        
+        self.song_refresh_btn = QPushButton("REFRESH")
+        self.song_refresh_btn.setMinimumHeight(40)
+        self.song_refresh_btn.clicked.connect(lambda: self.songs_page.refresh_songs())
+        song_actions_layout.addWidget(self.song_refresh_btn)
+        
+        self.import_btn = QPushButton("IMPORT SONG")
+        self.import_btn.setMinimumHeight(40)
+        self.import_btn.clicked.connect(lambda: self.songs_page.on_import())
+        song_actions_layout.addWidget(self.import_btn)
+        
+        self.actions_stack.addWidget(self.song_actions_widget)
+        sidebar_layout.addWidget(self.actions_stack)
+        
+        sidebar_layout.addStretch()
+        
+        # Global Launch Button
+        self.play_btn = QPushButton("LANZAR JUEGO")
+        self.play_btn.setObjectName("AccentButton")
+        self.play_btn.setMinimumHeight(55)
+        self.play_btn.clicked.connect(self.on_play)
+        sidebar_layout.addWidget(self.play_btn)
+        
+        self.root_layout.addWidget(self.sidebar)
+        
+        # --- MAIN CONTENT (RIGHT) ---
+        self.content_container = QWidget()
+        main_vbox = QVBoxLayout(self.content_container)
+        main_vbox.setContentsMargins(0, 0, 0, 0)
+        main_vbox.setSpacing(0)
         
         # Custom Title Bar
         self.title_bar = CustomTitleBar(self)
         self.title_bar.lang_clicked.connect(self.toggle_language)
-        self.main_vbox.addWidget(self.title_bar)
+        main_vbox.addWidget(self.title_bar)
         
-        # Main Content Area
-        self.content_widget = QWidget()
-        self.main_layout = QVBoxLayout(self.content_widget)
-        self.main_layout.setContentsMargins(0, 0, 0, 30) # No side margins here
-        self.main_layout.setSpacing(0)
-        
-        self.main_vbox.addWidget(self.content_widget)
-        
-        # Header & Config Section (with Background Banner)
+        # Header & Config Section
         self.header_section = HeaderSection()
-        self.header_layout_outer = QVBoxLayout(self.header_section)
-        self.header_layout_outer.setContentsMargins(30, 40, 30, 40)
-        self.header_layout_outer.setSpacing(25)
+        header_content_layout = QVBoxLayout(self.header_section)
+        header_content_layout.setContentsMargins(40, 30, 40, 30)
+        header_content_layout.setSpacing(20)
         
-        # Header Content
-        header_layout = QVBoxLayout()
         self.header_title = QLabel("DEAD AS DISCO")
         self.header_title.setObjectName("HeaderTitle")
-        
-        self.header_sub = QLabel("MOD MANAGER // V3.0")
-        self.header_sub.setObjectName("HeaderSub")
-        self.header_sub.setStyleSheet(f"color: {NeonStyle.ACCENT_PURPLE}; font-weight: bold;")
-        
-        header_layout.addWidget(self.header_title)
-        header_layout.addWidget(self.header_sub)
-        self.header_layout_outer.addLayout(header_layout)
+        header_content_layout.addWidget(self.header_title)
         
         # Configuration Group
         self.config_group = QGroupBox("Configuración")
@@ -72,87 +172,82 @@ class MainWindow(QMainWindow):
         
         # EXE Path
         exe_layout = QHBoxLayout()
-        exe_layout.setAlignment(Qt.AlignVCenter)
         self.exe_lbl = QLabel("Ejecutable:")
-        exe_layout.addWidget(self.exe_lbl)
         self.exe_edit = QLineEdit(self.core.config.get("exe_path", ""))
         self.exe_edit.setReadOnly(True)
-        exe_layout.addWidget(self.exe_edit)
         self.exe_btn = QPushButton("...")
         self.exe_btn.setFixedSize(40, 36)
         self.exe_btn.clicked.connect(self.on_select_exe)
+        exe_layout.addWidget(self.exe_lbl)
+        exe_layout.addWidget(self.exe_edit)
         exe_layout.addWidget(self.exe_btn)
         config_layout.addLayout(exe_layout)
         
         # Storage Path
         storage_layout = QHBoxLayout()
-        storage_layout.setAlignment(Qt.AlignVCenter)
         self.storage_lbl = QLabel("Almacenamiento:")
-        storage_layout.addWidget(self.storage_lbl)
         self.storage_edit = QLineEdit(self.core.config.get("mods_storage_path", ""))
         self.storage_edit.setReadOnly(True)
-        storage_layout.addWidget(self.storage_edit)
         self.storage_btn = QPushButton("...")
         self.storage_btn.setFixedSize(40, 36)
         self.storage_btn.clicked.connect(self.on_select_storage)
+        storage_layout.addWidget(self.storage_lbl)
+        storage_layout.addWidget(self.storage_edit)
         storage_layout.addWidget(self.storage_btn)
         config_layout.addLayout(storage_layout)
         
-        self.header_layout_outer.addWidget(self.config_group)
-        self.main_layout.addWidget(self.header_section)
+        header_content_layout.addWidget(self.config_group)
+        main_vbox.addWidget(self.header_section)
         
-        # Lower Section (Mod List & Actions)
-        self.lower_content = QWidget()
-        self.lower_layout = QVBoxLayout(self.lower_content)
-        self.lower_layout.setContentsMargins(30, 20, 30, 0)
-        self.lower_layout.setSpacing(20)
+        # Stacked Widget for Lists
+        self.stacked_widget = QStackedWidget()
         
-        # Mod List Group
+        # Page 0: Mods
+        self.mods_content = QWidget()
+        mods_layout = QVBoxLayout(self.mods_content)
+        mods_layout.setContentsMargins(40, 20, 40, 20)
+        
         self.list_group = QGroupBox("Mods Disponibles")
-        self.list_group.setObjectName("ModsGroup") # Use cyan accent
+        self.list_group.setObjectName("ModsGroup") 
         list_layout = QVBoxLayout(self.list_group)
-        
         self.mod_list_widget = QListWidget()
         self.mod_list_widget.setVerticalScrollMode(QListWidget.ScrollPerPixel)
-        
         self.mod_header = ModListHeader(self.lang)
         list_layout.addWidget(self.mod_header)
         list_layout.addWidget(self.mod_list_widget)
+        mods_layout.addWidget(self.list_group)
         
-        self.lower_layout.addWidget(self.list_group, 1)
+        # Page 1: Songs
+        self.songs_page = SongsPage()
+        self.songs_page.launch_requested.connect(self.on_play)
         
-        # Action Buttons
-        actions_layout = QHBoxLayout()
-        actions_layout.setAlignment(Qt.AlignVCenter)
-        actions_layout.setContentsMargins(0, 10, 0, 10)
-        
-        self.apply_btn = QPushButton("APLICAR CAMBIOS")
-        self.apply_btn.clicked.connect(self.on_apply)
-        actions_layout.addWidget(self.apply_btn)
-        
-        self.refresh_btn = QPushButton("ACTUALIZAR")
-        self.refresh_btn.clicked.connect(self.refresh_all)
-        actions_layout.addWidget(self.refresh_btn)
-        
-        self.add_mod_btn = QPushButton("AÑADIR MOD")
-        self.add_mod_btn.clicked.connect(self.on_add_mod)
-        actions_layout.addWidget(self.add_mod_btn)
-        
-        actions_layout.addStretch()
-        
-        self.play_btn = QPushButton("LANZAR JUEGO")
-        self.play_btn.setObjectName("AccentButton")
-        self.play_btn.clicked.connect(self.on_play)
-        self.play_btn.setMinimumHeight(45) # Make the main action button stand out more
-        actions_layout.addWidget(self.play_btn)
-        
-        self.lower_layout.addLayout(actions_layout)
-        self.main_layout.addWidget(self.lower_content, 1)
+        self.stacked_widget.addWidget(self.mods_content)
+        self.stacked_widget.addWidget(self.songs_page)
+        main_vbox.addWidget(self.stacked_widget, 1)
         
         # Status Bar
         self.status_bar = QStatusBar()
-        self.setStatusBar(self.status_bar)
+        self.status_bar.setSizeGripEnabled(True)
+        main_vbox.addWidget(self.status_bar)
+        
+        # Manual Size Grip at the bottom right corner of the root window
+        self.size_grip = QSizeGrip(self)
+        self.size_grip.setFixedSize(16, 16)
+        
+        self.root_layout.addWidget(self.content_container, 1)
         self.retranslate_ui()
+
+    def switch_page(self, index):
+        self.stacked_widget.setCurrentIndex(index)
+        self.actions_stack.setCurrentIndex(index)
+        self.mods_tab_btn.setChecked(index == 0)
+        self.songs_tab_btn.setChecked(index == 1)
+        
+        # Refresh the page being shown
+        if index == 0:
+            self.refresh_all()
+        else:
+            self.songs_page.refresh_songs()
 
     def toggle_language(self):
         self.lang = "en" if self.lang == "es" else "es"
@@ -166,8 +261,17 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(t["title"])
         self.title_bar.title_label.setText(f" {t['title']}")
         self.title_bar.lang_btn.setText(t["lang_btn"])
+        
+        self.brand_title.setText(t["title_short"] if "title_short" in t else "MOD MANAGER")
+        self.brand_sub.setText(t["header_sub"])
+        
+        self.nav_label.setText(t["nav_categories"])
+        self.actions_label.setText(t["nav_actions"])
+        self.mods_tab_btn.setText(t["nav_mods"])
+        self.songs_tab_btn.setText(t["nav_songs"])
+        self.import_song_btn.setText(t["import_song_btn"])
+        
         self.header_title.setText("DEAD AS DISCO")
-        self.header_sub.setText(t["header_sub"])
         
         self.config_group.setTitle(t["config_group"])
         self.exe_lbl.setText(t["exe_lbl"])
