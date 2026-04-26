@@ -126,10 +126,10 @@ class MainWindow(QMainWindow):
         self.song_refresh_btn.clicked.connect(lambda: self.songs_page.refresh_songs())
         song_actions_layout.addWidget(self.song_refresh_btn)
         
-        self.import_btn = QPushButton("IMPORT SONG")
-        self.import_btn.setMinimumHeight(40)
-        self.import_btn.clicked.connect(lambda: self.songs_page.on_import())
-        song_actions_layout.addWidget(self.import_btn)
+        self.import_song_btn = QPushButton("IMPORT SONG")
+        self.import_song_btn.setMinimumHeight(40)
+        self.import_song_btn.clicked.connect(lambda: self.songs_page.on_import())
+        song_actions_layout.addWidget(self.import_song_btn)
         
         self.actions_stack.addWidget(self.song_actions_widget)
         sidebar_layout.addWidget(self.actions_stack)
@@ -270,6 +270,7 @@ class MainWindow(QMainWindow):
         self.mods_tab_btn.setText(t["nav_mods"])
         self.songs_tab_btn.setText(t["nav_songs"])
         self.import_song_btn.setText(t["import_song_btn"])
+        self.song_refresh_btn.setText(t["refresh_btn"])
         
         self.header_title.setText("DEAD AS DISCO")
         
