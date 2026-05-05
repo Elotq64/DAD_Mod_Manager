@@ -28,11 +28,11 @@ class Song:
             "performedBy": self.performed_by if isinstance(self.performed_by, list) else [self.performed_by] if self.performed_by else [],
             "writtenBy": self.full_metadata.get("writtenBy", []),
             "seed": int(self.seed),
-            "tempo": int(float(self.tempo)),
+            "tempo": float(self.tempo),
             "customTempoSections": self.full_metadata.get("customTempoSections", []),
             "beatOffset": int(float(self.beat_offset)),
-            "startSongOffset": int(float(self.start_song_offset)),
-            "endSongOffset": int(float(self.end_song_offset))
+            "startSongOffset": float(self.start_song_offset),
+            "endSongOffset": float(self.end_song_offset)
         }
 
     def save(self):
@@ -40,6 +40,24 @@ class Song:
         with open(meta_path, 'w', encoding='utf-8') as f:
             # The game uses tabs for indentation
             json.dump(self.to_dict(), f, indent="\t")
+
+    def reload(self):
+        """ Reloads metadata from the Meta.json file """
+        meta_path = os.path.join(self.folder_path, "Meta.json")
+        if not os.path.exists(meta_path):
+            return
+            
+        metadata = None
+        for enc in ['utf-8-sig', 'utf-16', 'utf-8']:
+            try:
+                with open(meta_path, 'r', encoding=enc) as f:
+                    metadata = json.load(f)
+                break
+            except:
+                continue
+        
+        if metadata:
+            self.__init__(self.folder_path, metadata)
 
     @classmethod
     def from_folder(cls, folder_path):

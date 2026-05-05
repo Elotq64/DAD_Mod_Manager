@@ -9,6 +9,7 @@ from core.songs.song_scanner import SongScanner
 from core.songs.song_importer import SongImporter
 from core.songs.song_editor import SongEditor
 from ui.songs.song_edit_dialog import SongMetadataDialog
+from ui.songs.beat_mapper import BeatMapperDialog
 from ui.style import NeonStyle
 from ui.widgets import CustomTitleBar
 
@@ -135,6 +136,7 @@ class ImportSongDialog(QDialog):
 
 class SongItemWidget(QWidget):
     edit_requested = Signal()
+    map_requested = Signal()
     delete_requested = Signal()
     play_requested = Signal()
 
@@ -176,6 +178,24 @@ class SongItemWidget(QWidget):
         self.edit_btn.setCursor(Qt.PointingHandCursor)
         self.edit_btn.clicked.connect(self.edit_requested.emit)
         layout.addWidget(self.edit_btn)
+        
+        self.map_btn = QPushButton("MAP")
+        self.map_btn.setObjectName("AccentButton")
+        self.map_btn.setFixedSize(80, 36)
+        self.map_btn.setCursor(Qt.PointingHandCursor)
+        self.map_btn.clicked.connect(self.map_requested.emit)
+        layout.addWidget(self.map_btn)
+        
+        from core.i18n import TEXTS
+        from ui.main_window import MainWindow
+        lang = "en"
+        curr = self.parent()
+        while curr:
+            if isinstance(curr, MainWindow):
+                lang = curr.lang
+                break
+            curr = curr.parent()
+        self.map_btn.setText(TEXTS[lang].get("map_btn", "MAP"))
         
         self.delete_btn = QPushButton("DELETE")
         self.delete_btn.setObjectName("DeleteButton")
@@ -254,6 +274,7 @@ class SongsPage(QWidget):
             item = QListWidgetItem(self.songs_list)
             widget = SongItemWidget(song)
             widget.edit_requested.connect(lambda s=song: self.on_edit_song(s))
+            widget.map_requested.connect(lambda s=song: self.on_beat_map(s))
             widget.delete_requested.connect(lambda s=song: self.on_delete_song(s))
             widget.play_requested.connect(lambda s=song, w=widget: self.on_play_song(s, w))
             item.setSizeHint(widget.sizeHint())
@@ -368,6 +389,22 @@ class SongsPage(QWidget):
                 self.refresh_songs()
             else:
                 QMessageBox.critical(self, "Validation Error", "\n".join(result))
+
+    def on_beat_map(self, song):
+        from ui.main_window import MainWindow
+        lang = "en"
+        curr = self.parent()
+        while curr:
+            if isinstance(curr, MainWindow):
+                lang = curr.lang
+                break
+            curr = curr.parent()
+            
+        self.player.stop() # Stop preview if playing
+        song.reload() # Reload from JSON to ensure latest data
+        dialog = BeatMapperDialog(song, lang=lang, parent=self)
+        if dialog.exec():
+            self.refresh_songs()
 
     def on_delete_song(self, song):
         res = QMessageBox.question(

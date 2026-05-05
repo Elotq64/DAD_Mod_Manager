@@ -57,7 +57,7 @@ class MainWindow(QMainWindow):
         brand_layout = QVBoxLayout()
         self.brand_title = QLabel("MOD MANAGER")
         self.brand_title.setStyleSheet(f"color: {NeonStyle.ACCENT}; font-weight: bold; font-size: 14pt; letter-spacing: 2px;")
-        self.brand_sub = QLabel("V4.0 // STABLE")
+        self.brand_sub = QLabel("V5.0 // STABLE")
         self.brand_sub.setStyleSheet(f"color: {NeonStyle.ACCENT_PURPLE}; font-size: 8pt; font-weight: bold; letter-spacing: 1px;")
         brand_layout.addWidget(self.brand_title)
         brand_layout.addWidget(self.brand_sub)

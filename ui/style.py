@@ -214,11 +214,20 @@ class NeonStyle:
         border-top: 1px solid {BORDER};
     }}
 
-    QInputDialog {{
+    QDialog, QInputDialog, QMessageBox {{
         background-color: {BG_DARK};
+        color: {TEXT_MAIN};
     }}
 
-    QMessageBox {{
-        background-color: {BG_DARK};
+    QSpinBox, QDoubleSpinBox {{
+        background-color: {BG_PANEL};
+        border: 1px solid {BORDER};
+        border-radius: 4px;
+        padding: 8px;
+        color: {TEXT_MAIN};
+    }}
+
+    QSpinBox:focus, QDoubleSpinBox:focus {{
+        border: 1px solid {ACCENT_PURPLE};
     }}
     """
