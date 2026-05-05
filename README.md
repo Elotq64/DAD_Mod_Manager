@@ -49,8 +49,12 @@ We provide pre-configured `.spec` files for a perfect build:
 ## Features
 
 - **Neon Dark Aesthetic**: Premium dark interface with Cyan and Purple accents.
+- **Beat Mapper (V5!)**: Advanced editor to sync your songs with surgical precision.
+- **BPM Autodetection**: Automatically calculate the tempo of your tracks using AI-powered analysis.
+- **Dynamic Waveform**: High-precision visual rendering with zoom and panning support.
+- **Custom Tempo Sections**: Manage complex songs with multiple BPM changes in a single track.
 - **Multi-language**: Full Support for English & Spanish with dynamic switching.
-- **Frameless UI**: Custom title bar for a sleek, modern desktop look.
+- **Fast Startup**: Optimized library loading for an instant-boot experience in the desktop app.
 - **Smart Sync**: Only active mods are deployed to the game folder (keeping it clean).
 - **Steam Integration**: Automatic AppID detection and one-click game launch.
 - **Auto-Migration**: Automatically moves your existing mods to a safe storage directory.
