@@ -119,7 +119,7 @@ class CustomTitleBar(QWidget):
         self.layout.addStretch()
 
         # Language Button
-        self.lang_btn = QPushButton("ES")
+        self.lang_btn = QPushButton("EN")
         self.lang_btn.setObjectName("TitleButton")
         self.lang_btn.setFixedSize(45, 40)
         self.lang_btn.clicked.connect(self.lang_clicked.emit)
@@ -306,7 +306,7 @@ class ModItemWidget(QWidget):
     rename_requested = Signal()
     type_changed = Signal(str)
 
-    def __init__(self, mod_metadata, is_active=False, lang="es", parent=None):
+    def __init__(self, mod_metadata, is_active=False, lang="en", parent=None):
         super().__init__(parent)
         self.mod_metadata = mod_metadata
         self.mod_name = mod_metadata["name"]

@@ -13,7 +13,7 @@ class MainWindow(QMainWindow):
     def __init__(self, core):
         super().__init__()
         self.core = core
-        self.lang = self.core.config.get("language", "es")
+        self.lang = self.core.config.get("language", "en")
         self.setWindowTitle("DEAD AS DISCO - MOD MANAGER")
         self.setMinimumSize(1000, 850)
         self.resize(1000, 850)
@@ -57,7 +57,7 @@ class MainWindow(QMainWindow):
         brand_layout = QVBoxLayout()
         self.brand_title = QLabel("MOD MANAGER")
         self.brand_title.setStyleSheet(f"color: {NeonStyle.ACCENT}; font-weight: bold; font-size: 14pt; letter-spacing: 2px;")
-        self.brand_sub = QLabel("V5.0 // STABLE")
+        self.brand_sub = QLabel("V6.0 // STABLE")
         self.brand_sub.setStyleSheet(f"color: {NeonStyle.ACCENT_PURPLE}; font-size: 8pt; font-weight: bold; letter-spacing: 1px;")
         brand_layout.addWidget(self.brand_title)
         brand_layout.addWidget(self.brand_sub)

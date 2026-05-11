@@ -6,10 +6,20 @@ a = Analysis(
     pathex=[],
     binaries=[
         ('src/assets/ffmpeg.exe', 'ffmpeg'),
-        ('src/assets/ffprobe.exe', 'ffmpeg')
+        ('src/assets/ffprobe.exe', 'ffmpeg'),
+        ('src/assets/unrar.exe', 'ffmpeg')
     ],
     datas=[('src/assets', 'src/assets')],
-    hiddenimports=[],
+    hiddenimports=[
+        'py7zr',
+        'pyppmd',
+        'pybcj',
+        'multivolumefile',
+        'inflate64',
+        'pyzstd',
+        'texttable',
+        'brotli'
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

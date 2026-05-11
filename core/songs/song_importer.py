@@ -4,6 +4,7 @@ import zipfile
 import tempfile
 import json
 import secrets
+from pathlib import Path
 from .song_validator import SongValidator
 from .audio_converter import AudioConverter
 from .song_model import Song
@@ -39,6 +40,126 @@ class SongImporter:
             return False
         return (uid, seed) in self.existing_ids
 
+    def check_conflicts(self, zip_path):
+        """
+        Scans a ZIP package and returns a dictionary of conflicts.
+        { 'song_folder_name': 'reason' }
+        Reasons: 'folder_exists', 'id_collision', or both.
+        """
+        conflicts = {}
+        with zipfile.ZipFile(zip_path, 'r') as zipf:
+            # Find unique top-level directories
+            root_folders = set(Path(n).parts[0] for n in zipf.namelist())
+            
+            for folder in root_folders:
+                # 1. Folder name collision
+                folder_exists = os.path.exists(os.path.join(self.target_dir, folder))
+                
+                # 2. ID/Seed collision
+                meta_content = None
+                try:
+                    with zipf.open(f"{folder}/Meta.json") as f:
+                        raw_data = f.read()
+                        # Try encodings just like in song_model.py
+                        for enc in ['utf-8-sig', 'utf-16', 'utf-8']:
+                            try:
+                                meta_content = json.loads(raw_data.decode(enc))
+                                break
+                            except:
+                                continue
+                except Exception:
+                    continue
+                
+                id_collision = self._is_duplicate(meta_content)
+                
+                if folder_exists or id_collision:
+                    reason = []
+                    if folder_exists: reason.append("folder_exists")
+                    if id_collision: reason.append("id_collision")
+                    conflicts[folder] = reason
+        return conflicts
+
+    def import_from_shared_package(self, zip_path, strategies=None):
+        """
+        Imports songs from a shared ZIP package.
+        strategies: dict mapping folder_name to 'replace', 'new', or 'skip'
+        """
+        strategies = strategies or {}
+        imported_count = 0
+        with tempfile.TemporaryDirectory() as temp_dir:
+            try:
+                with zipfile.ZipFile(zip_path, 'r') as zipf:
+                    zipf.extractall(temp_dir)
+                
+                for entry in os.scandir(temp_dir):
+                    if entry.is_dir() and SongValidator.is_valid_song_folder(entry.path):
+                        strategy = strategies.get(entry.name, 'new') # Default to new if not specified
+                        
+                        if strategy == 'replace':
+                            self._import_replace(entry.path)
+                            imported_count += 1
+                        elif strategy == 'new':
+                            self._import_as_new(entry.path)
+                            imported_count += 1
+                        # 'skip' does nothing
+                
+                return True, f"Imported {imported_count} songs."
+            except Exception as e:
+                return False, f"Failed to import shared package: {e}"
+
+    def _import_replace(self, source_path):
+        folder_name = os.path.basename(source_path)
+        dest_path = os.path.join(self.target_dir, folder_name)
+        
+        # Clean up existing folder first
+        if os.path.exists(dest_path):
+            shutil.rmtree(dest_path)
+        
+        shutil.copytree(source_path, dest_path)
+        # Re-index
+        self._refresh_existing_ids()
+
+    def _import_as_new(self, source_path):
+        folder_name = os.path.basename(source_path)
+        dest_path = os.path.join(self.target_dir, folder_name)
+        
+        # 1. Handle folder collision
+        counter = 1
+        original_dest = dest_path
+        while os.path.exists(dest_path):
+            dest_path = f"{original_dest}_{counter}"
+            counter += 1
+        
+        os.makedirs(dest_path, exist_ok=True)
+        for f in os.listdir(source_path):
+            shutil.copy2(os.path.join(source_path, f), os.path.join(dest_path, f))
+            
+        # 2. Handle ID collision (Regenerate ID and Seed)
+        meta_path = os.path.join(dest_path, "Meta.json")
+        if os.path.exists(meta_path):
+            data = None
+            # Try multiple encodings
+            for enc in ['utf-8-sig', 'utf-16', 'utf-8']:
+                try:
+                    with open(meta_path, 'r', encoding=enc) as f:
+                        data = json.load(f)
+                    break
+                except:
+                    continue
+            
+            if data:
+                try:
+                    # Regenerate to ensure it's "new" for the game
+                    data["uniqueId"] = secrets.randbits(32)
+                    data["seed"] = secrets.randbits(32)
+                    
+                    with open(meta_path, 'w', encoding='utf-8') as f:
+                        json.dump(data, f, indent="\t")
+                        
+                    self.existing_ids.add((data["uniqueId"], data["seed"]))
+                except Exception:
+                    pass
+
     def import_from_path(self, path, custom_metadata=None):
         """
         Main entry point for importing. Path can be:
@@ -55,25 +176,45 @@ class SongImporter:
         return False, "Unsupported file format or path."
 
     def _import_folder(self, folder_path):
-        # Check if it's a valid song folder directly
+        # 1. Check if it's a valid song folder directly
         if SongValidator.is_valid_song_folder(folder_path):
             return self._copy_song_folder(folder_path)
         
-        # Or maybe it's a folder containing multiple song folders?
+        # 2. Check if it's a folder containing multiple song folders (Legacy behavior)
         imported_count = 0
-        found_folders = 0
+        found_song_folders = False
+        
         for entry in os.scandir(folder_path):
             if entry.is_dir() and SongValidator.is_valid_song_folder(entry.path):
-                found_folders += 1
+                found_song_folders = True
                 success, _ = self._copy_song_folder(entry.path)
                 if success:
                     imported_count += 1
         
         if imported_count > 0:
-            return True, f"Imported {imported_count} songs."
-        if found_folders > 0:
+            return True, f"Imported {imported_count} songs from folders."
+        
+        # 3. Recursive Audio Scavenger: Find all raw audio files
+        # This is for when the user selects a folder full of MP3s
+        audio_files = []
+        for root, _, files in os.walk(folder_path):
+            for f in files:
+                if SongValidator.is_supported_audio(f):
+                    audio_files.append(os.path.join(root, f))
+        
+        if audio_files:
+            for audio_path in audio_files:
+                success, _ = self._import_audio_file(audio_path)
+                if success:
+                    imported_count += 1
+            
+            if imported_count > 0:
+                return True, f"Imported {imported_count} songs from audio files."
+            return False, "Found audio files but failed to import them."
+
+        if found_song_folders:
             return False, "Songs already exist or could not be copied."
-        return False, "No valid song folders found in the selected directory."
+        return False, "No valid song folders or audio files found in the selected directory."
 
     def _import_zip(self, zip_path):
         with tempfile.TemporaryDirectory() as temp_dir:

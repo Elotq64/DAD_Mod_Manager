@@ -24,7 +24,12 @@ def get_ffmpeg_paths():
         ffmpeg_dir = os.path.join(base_dir, "src", "assets")
         
     ffmpeg_path = os.path.join(ffmpeg_dir, "ffmpeg.exe")
+    if not os.path.exists(ffmpeg_path):
+        ffmpeg_path = os.path.join(ffmpeg_dir, "ffmpeg")
+        
     ffprobe_path = os.path.join(ffmpeg_dir, "ffprobe.exe")
+    if not os.path.exists(ffprobe_path):
+        ffprobe_path = os.path.join(ffmpeg_dir, "ffprobe")
     
     if os.path.exists(ffmpeg_dir):
         path_abs = os.path.abspath(ffmpeg_dir)
@@ -32,3 +37,18 @@ def get_ffmpeg_paths():
             os.environ["PATH"] = path_abs + os.pathsep + os.environ["PATH"]
             
     return ffmpeg_path, ffprobe_path
+
+def get_unrar_path():
+    """Returns the path to the unrar binary."""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
+    if getattr(sys, 'frozen', False):
+        unrar_dir = os.path.join(sys._MEIPASS, "ffmpeg") # We bundle it in the same place
+    else:
+        unrar_dir = os.path.join(base_dir, "src", "assets")
+        
+    unrar_path = os.path.join(unrar_dir, "unrar.exe")
+    if not os.path.exists(unrar_path):
+        unrar_path = os.path.join(unrar_dir, "unrar")
+        
+    return unrar_path

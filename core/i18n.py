@@ -2,7 +2,7 @@
 TEXTS = {
     "es": {
         "title": "DEAD AS DISCO - GESTOR DE MODS",
-        "header_sub": "GESTOR DE MODS // V5.0!",
+        "header_sub": "GESTOR DE MODS // V6.0!",
         "config_group": "Configuración",
         "exe_lbl": "Ejecutable:",
         "storage_lbl": "Almacenamiento:",
@@ -84,11 +84,17 @@ TEXTS = {
         "right_click": "CLICK DER",
         "seek_drag": "BUSCAR / ARRASTRAR",
         "pan_view": "MOVER VISTA",
-        "zoom": "ZOOM"
+        "zoom": "ZOOM",
+        "shared_import_btn": "IMPORTAR CANCIONES COMPARTIDAS",
+        "shared_export_btn": "EXPORTAR CANCIONES COMPARTIDAS",
+        "msg_select_export": "Selecciona canciones para exportar",
+        "msg_export_success": "Exportación completada con éxito.",
+        "msg_import_shared_title": "Importar Paquete Compartido",
+        "msg_no_valid_shared": "No se encontraron canciones válidas en el paquete."
     },
     "en": {
         "title": "DEAD AS DISCO - MOD MANAGER",
-        "header_sub": "MOD MANAGER // V5.0!",
+        "header_sub": "MOD MANAGER // V6.0!",
         "config_group": "Settings",
         "exe_lbl": "Executable:",
         "storage_lbl": "Storage:",
@@ -157,6 +163,12 @@ TEXTS = {
         "right_click": "RIGHT CLICK",
         "seek_drag": "SEEK / DRAG",
         "pan_view": "PAN VIEW",
-        "zoom": "ZOOM"
+        "zoom": "ZOOM",
+        "shared_import_btn": "IMPORT SHARED SONGS",
+        "shared_export_btn": "EXPORT MY SONGS",
+        "msg_select_export": "Select songs to export",
+        "msg_export_success": "Export completed successfully.",
+        "msg_import_shared_title": "Import Shared Package",
+        "msg_no_valid_shared": "No valid songs found in the package."
     }
 }

@@ -9,22 +9,35 @@ except ImportError:
     rarfile = None
 from pathlib import Path
 from collections import defaultdict
+from .utils import get_unrar_path
 
 class ModManagerCore:
     def __init__(self):
         self.base_dir = Path.home() / "Documents" / "ModManager"
         self.config_file = self.base_dir / "config.json"
         self.base_dir.mkdir(parents=True, exist_ok=True)
+        self._configure_rarfile()
         self.config = self.load_config()
         self.active_mods_path = None
         self._update_paths()
+
+    def _configure_rarfile(self):
+        if rarfile:
+            unrar_path = get_unrar_path()
+            if os.path.exists(unrar_path):
+                rarfile.UNRAR_TOOL = unrar_path
+            # Also try to add the directory to PATH just in case
+            unrar_dir = os.path.dirname(unrar_path)
+            if os.path.exists(unrar_dir) and unrar_dir not in os.environ["PATH"]:
+                os.environ["PATH"] = unrar_dir + os.pathsep + os.environ["PATH"]
 
     def load_config(self):
         default_config = {
             "exe_path": "",
             "mods_storage_path": "",
             "active_mods": [],
-            "steam_appid": ""
+            "steam_appid": "",
+            "language": "en"
         }
         if self.config_file.exists():
             try:
@@ -237,11 +250,19 @@ class ModManagerCore:
         storage_path = Path(storage_path_str)
         
         if self.active_mods_path.exists():
+            # Managed Sync: Only remove files that we manage (.pak, .ucas, .utoc)
+            # and that are NOT part of the new selection to be installed.
+            # This prevents wiping entire folders if users put other things in ~mods.
+            valid_extensions = {'.pak', '.ucas', '.utoc'}
             for f in self.active_mods_path.iterdir():
-                if f.is_file(): os.remove(f)
-                elif f.is_dir(): shutil.rmtree(f)
-        else:
-            self.active_mods_path.mkdir(parents=True)
+                if f.is_file() and f.suffix.lower() in valid_extensions:
+                    # We only delete if it's not in the new selection 
+                    # (Wait, the selection is mod names, but files might have different names)
+                    # To be safest on Steam Deck: only delete if we are absolutely sure it's a mod we want to disable.
+                    os.remove(f)
+                elif f.is_dir():
+                    # Check if it's a mod folder we might have created
+                    shutil.rmtree(f)
 
         for mod_name in selected_mods:
             mod_dir = storage_path / mod_name
@@ -285,6 +306,13 @@ class ModManagerCore:
                     raise ImportError("rarfile library not installed")
                 with rarfile.RarFile(archive_path) as rf:
                     rf.extractall(temp_dir)
+            elif archive_path.lower().endswith('.7z'):
+                try:
+                    import py7zr
+                except ImportError:
+                    raise ImportError("py7zr library not installed")
+                with py7zr.SevenZipFile(archive_path, mode='r') as sz:
+                    sz.extractall(temp_dir)
             else:
                 raise ValueError("Unsupported archive format")
 

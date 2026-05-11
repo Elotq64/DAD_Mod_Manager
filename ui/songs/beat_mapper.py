@@ -383,6 +383,10 @@ class CalibrationDialog(QDialog):
         avg_interval = sum(intervals) / len(intervals)
         return round(60.0 / avg_interval, 2)
 
+    def done(self, result):
+        self.player.stop()
+        super().done(result)
+
     def closeEvent(self, event):
         self.player.stop()
         super().closeEvent(event)
@@ -410,8 +414,9 @@ class BeatMapperDialog(QDialog):
         
         self.tempo = song.tempo
         self.beat_offset = song.beat_offset
-        self.start_time = song.start_song_offset
-        self.end_time = song.end_song_offset
+        # Convert MS from song object to Seconds for UI
+        self.start_time = song.start_song_offset / 1000.0
+        self.end_time = song.end_song_offset / 1000.0
         self.tempo_sections = song.full_metadata.get("customTempoSections", [])
         
         self.init_ui()
@@ -657,7 +662,7 @@ class BeatMapperDialog(QDialog):
             self.btn_play.setText("PAUSE")
 
     def open_calibrate(self):
-        self.player.pause()
+        self.player.stop()
         self.btn_play.setText("PLAY")
         dlg = CalibrationDialog(self.audio_path, self.lang, self)
         if dlg.exec():
@@ -741,8 +746,9 @@ class BeatMapperDialog(QDialog):
     def save_and_exit(self):
         self.song.tempo = self.tempo
         self.song.beat_offset = self.beat_offset
-        self.song.start_song_offset = self.start_time
-        self.song.end_song_offset = self.end_time
+        # Convert Seconds from UI back to MS for persistence
+        self.song.start_song_offset = self.start_time * 1000.0
+        self.song.end_song_offset = self.end_time * 1000.0
         self.song.full_metadata["customTempoSections"] = self.tempo_sections
         self.song.save()
         self.accept()

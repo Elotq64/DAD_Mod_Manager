@@ -12,6 +12,8 @@ from ui.songs.song_edit_dialog import SongMetadataDialog
 from ui.songs.beat_mapper import BeatMapperDialog
 from ui.style import NeonStyle
 from ui.widgets import CustomTitleBar
+from ui.songs.conflict_dialog import ConflictResolverDialog
+from core.songs.song_packer import SongPacker
 
 class ImportWorker(QThread):
     finished = Signal(bool, str) # Success, Error Message
@@ -249,6 +251,23 @@ class SongsPage(QWidget):
         layout.setContentsMargins(30, 20, 30, 20)
         layout.setSpacing(20)
         
+        # Shared Actions Section
+        shared_layout = QHBoxLayout()
+        shared_layout.setSpacing(15)
+        
+        self.btn_import_shared = QPushButton("IMPORT SHARED SONGS")
+        self.btn_import_shared.setObjectName("AccentButton")
+        self.btn_import_shared.setMinimumHeight(45)
+        self.btn_import_shared.clicked.connect(self.on_import_shared)
+        
+        self.btn_export_shared = QPushButton("EXPORT MY SONGS")
+        self.btn_export_shared.setMinimumHeight(45)
+        self.btn_export_shared.clicked.connect(self.on_export_shared)
+        
+        shared_layout.addWidget(self.btn_import_shared)
+        shared_layout.addWidget(self.btn_export_shared)
+        layout.addLayout(shared_layout)
+
         # Songs List Area
         self.songs_list = QListWidget()
         self.songs_list.setObjectName("SongsList")
@@ -280,6 +299,117 @@ class SongsPage(QWidget):
             item.setSizeHint(widget.sizeHint())
             self.songs_list.addItem(item)
             self.songs_list.setItemWidget(item, widget)
+            
+        self.retranslate_ui()
+
+    def retranslate_ui(self):
+        from core.i18n import TEXTS
+        from ui.main_window import MainWindow
+        lang = "en"
+        curr = self.parent()
+        while curr:
+            if isinstance(curr, MainWindow):
+                lang = curr.lang
+                break
+            curr = curr.parent()
+        
+        t = TEXTS[lang]
+        self.btn_import_shared.setText(t.get("shared_import_btn", "IMPORT SHARED SONGS"))
+        self.btn_export_shared.setText(t.get("shared_export_btn", "EXPORT MY SONGS"))
+
+    def on_export_shared(self):
+        from core.i18n import TEXTS
+        from ui.main_window import MainWindow
+        lang = "en"
+        curr = self.parent()
+        while curr:
+            if isinstance(curr, MainWindow):
+                lang = curr.lang
+                break
+            curr = curr.parent()
+        t = TEXTS[lang]
+
+        songs = self.scanner.scan()
+        if not songs:
+            QMessageBox.information(self, "Export", "No songs to export.")
+            return
+
+        # For simplicity, we export all. We could add a selection dialog here if requested.
+        target_zip, _ = QFileDialog.getSaveFileName(self, "Export Songs", "SharedSongs.zip", "ZIP Archives (*.zip)")
+        if not target_zip:
+            return
+
+        try:
+            loading = LoadingDialog("EXPORTING...", self)
+            loading.sub_label.setText("Packaging songs into ZIP archive...")
+            loading.show()
+            QTimer.singleShot(100, lambda: self._do_export(target_zip, songs, loading, t))
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", str(e))
+
+    def _do_export(self, zip_path, songs, loading, t):
+        try:
+            folders = [s.folder_path for s in songs]
+            SongPacker.export_songs(zip_path, folders)
+            loading.close()
+            QMessageBox.information(self, "Success", t.get("msg_export_success", "Export successful!"))
+        except Exception as e:
+            loading.close()
+            QMessageBox.critical(self, "Export Error", str(e))
+
+    def on_import_shared(self):
+        from core.i18n import TEXTS
+        from ui.main_window import MainWindow
+        lang = "en"
+        curr = self.parent()
+        while curr:
+            if isinstance(curr, MainWindow):
+                lang = curr.lang
+                break
+            curr = curr.parent()
+        t = TEXTS[lang]
+
+        zip_path, _ = QFileDialog.getOpenFileName(self, t.get("shared_import_btn"), "", "ZIP Archives (*.zip)")
+        if not zip_path:
+            return
+
+        # 1. Validate
+        valid_folders = SongPacker.validate_package(zip_path)
+        if not valid_folders:
+            QMessageBox.warning(self, "Invalid Package", t.get("msg_no_valid_shared"))
+            return
+
+        # 2. Check Conflicts
+        conflicts = self.importer.check_conflicts(zip_path)
+        strategies = {}
+        
+        if conflicts:
+            dialog = ConflictResolverDialog(conflicts, self)
+            if dialog.exec():
+                strategies = dialog.get_results()
+            else:
+                return # User cancelled
+
+        # 3. Perform Import
+        try:
+            loading = LoadingDialog(t["importing_msg"], self)
+            loading.show()
+            QTimer.singleShot(100, lambda: self._do_shared_import(zip_path, strategies, loading))
+        except Exception as e:
+            QMessageBox.critical(self, "Import Error", str(e))
+
+    def _do_shared_import(self, zip_path, strategies, loading):
+        try:
+            success, msg = self.importer.import_from_shared_package(zip_path, strategies)
+            loading.close()
+            if success:
+                QMessageBox.information(self, "Success", msg)
+                self.refresh_songs()
+            else:
+                QMessageBox.critical(self, "Import Error", msg)
+        except Exception as e:
+            loading.close()
+            QMessageBox.critical(self, "Import Error", str(e))
 
     def on_play_song(self, song, widget):
         # If already playing this exact song, just stop it
@@ -323,6 +453,7 @@ class SongsPage(QWidget):
                 self.current_playing_widget = None
 
     def on_import(self):
+        self.player.stop() # Stop any active preview
         dialog = ImportSongDialog(self)
         if dialog.exec():
             if dialog.result_type == 'file':
@@ -381,6 +512,7 @@ class SongsPage(QWidget):
             QMessageBox.critical(self, "Import Error", msg)
 
     def on_edit_song(self, song):
+        self.player.stop() # Stop any active preview
         dialog = SongMetadataDialog(song=song, parent=self)
         if dialog.exec():
             new_data = dialog.get_metadata()

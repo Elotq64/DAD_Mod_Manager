@@ -23,12 +23,14 @@ class SongValidator:
         """
         Checks if Meta.json is valid JSON.
         """
-        try:
-            with open(meta_path, 'r', encoding='utf-8') as f:
-                json.load(f)
-            return True
-        except (json.JSONDecodeError, IOError):
-            return False
+        for enc in ['utf-8-sig', 'utf-16', 'utf-8']:
+            try:
+                with open(meta_path, 'r', encoding=enc) as f:
+                    json.load(f)
+                return True
+            except:
+                continue
+        return False
 
     @staticmethod
     def is_supported_audio(file_path):

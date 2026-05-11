@@ -4,3 +4,4 @@ pydub
 send2trash
 librosa
 numpy
+py7zr
