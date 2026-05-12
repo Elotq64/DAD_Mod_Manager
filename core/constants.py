@@ -1,0 +1,5 @@
+VERSION = "7.1.0"
+REPO_URL = "https://github.com/Elotq64/DAD_Mod_Manager"
+NEXUS_URL = "https://www.nexusmods.com/deadasdisco/mods/427?tab=files"
+API_URL = "https://api.github.com/repos/Elotq64/DAD_Mod_Manager/releases/latest"
+USER_AGENT = "DAD-Mod-Manager-Updater"

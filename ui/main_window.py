@@ -7,7 +7,11 @@ from PySide6.QtCore import Qt, QRect
 from ui.style import NeonStyle
 from ui.widgets import ModItemWidget, CustomTitleBar, HeaderSection, AddModDialog, ModListHeader
 from ui.songs.songs_page import SongsPage
+from ui.update_dialog import UpdateDialog
 from core.i18n import TEXTS
+from core.constants import VERSION, NEXUS_URL
+from core.updater import UpdateChecker
+import time
 
 class MainWindow(QMainWindow):
     def __init__(self, core):
@@ -27,6 +31,14 @@ class MainWindow(QMainWindow):
         
         self.setup_ui()
         self.refresh_all()
+        
+        # Async Update Check with Cooldown (24h)
+        last_check = self.core.config.get("last_update_check", 0)
+        now = time.time()
+        if now - last_check > 86400: # 24 hours
+            self.core.config["last_update_check"] = now
+            self.core.save_config()
+            self.check_for_updates(manual=False)
         
     def setup_ui(self):
         self.central_widget = QWidget()
@@ -167,9 +179,41 @@ class MainWindow(QMainWindow):
         header_content_layout.setContentsMargins(40, 30, 40, 30)
         header_content_layout.setSpacing(20)
         
+        header_top_layout = QHBoxLayout()
         self.header_title = QLabel("DEAD AS DISCO")
         self.header_title.setObjectName("HeaderTitle")
-        header_content_layout.addWidget(self.header_title)
+        
+        self.update_check_btn = QPushButton("BUSCAR ACTUALIZACIONES")
+        self.update_check_btn.setMinimumHeight(28)
+        self.update_check_btn.setCursor(Qt.PointingHandCursor)
+        self.update_check_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {NeonStyle.ACCENT}11;
+                border: 1px solid {NeonStyle.ACCENT}88;
+                color: {NeonStyle.ACCENT};
+                font-size: 8pt;
+                font-weight: bold;
+                padding: 4px 15px;
+                border-radius: 6px;
+                letter-spacing: 1px;
+            }}
+            QPushButton:hover {{
+                background-color: {NeonStyle.ACCENT}33;
+                border-color: {NeonStyle.ACCENT};
+                color: white;
+            }}
+            QPushButton:pressed {{
+                background-color: {NeonStyle.ACCENT}55;
+            }}
+        """)
+        self.update_check_btn.clicked.connect(lambda: self.check_for_updates(manual=True))
+        
+        header_top_layout.addWidget(self.header_title)
+        header_top_layout.addSpacing(20)
+        header_top_layout.addWidget(self.update_check_btn)
+        header_top_layout.addStretch()
+        
+        header_content_layout.addLayout(header_top_layout)
         
         # Configuration Group
         self.config_group = QGroupBox("Configuración")
@@ -300,6 +344,7 @@ class MainWindow(QMainWindow):
         self.refresh_btn.setText(t["refresh_btn"])
         self.add_mod_btn.setText(t["add_mod_btn"])
         self.bulk_import_btn.setText(t["bulk_import_btn"])
+        self.update_check_btn.setText(t["check_updates_btn"])
         self.play_btn.setText(t["play_btn"])
         
         self.mod_header.retranslate(self.lang)
@@ -449,6 +494,24 @@ class MainWindow(QMainWindow):
                 self.refresh_all()
             except Exception as e:
                 QMessageBox.critical(self, t["msg_error_title"], f"Error deleting mod: {e}")
+
+    def check_for_updates(self, manual=False):
+        self.updater_thread = UpdateChecker(manual=manual)
+        self.updater_thread.found_update.connect(self.show_update_dialog)
+        if manual:
+            self.updater_thread.up_to_date.connect(lambda: QMessageBox.information(
+                self, TEXTS[self.lang]["update_available_title"], 
+                TEXTS[self.lang]["already_latest_msg"]
+            ))
+            self.updater_thread.error.connect(lambda msg: QMessageBox.warning(
+                self, TEXTS[self.lang]["msg_error_title"], f"Check failed: {msg}"
+            ))
+        self.updater_thread.start()
+
+    def show_update_dialog(self, version, url, changelog):
+        # We override the GitHub URL with the Nexus URL as requested
+        dlg = UpdateDialog(version, NEXUS_URL, changelog, self.lang, self)
+        dlg.exec()
 
     def on_add_mod(self):
         t = TEXTS[self.lang]
