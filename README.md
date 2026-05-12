@@ -1,4 +1,4 @@
-# DEAD AS DISCO - Mod Manager (V7.1!)
+# DEAD AS DISCO - Mod Manager (V7.5!)
 
 ![Banner](src/assets/banner.jpg)
 

@@ -54,16 +54,50 @@ class ModManagerCore:
 
     def _update_paths(self):
         exe_path = self.config.get("exe_path")
-        if exe_path and os.path.exists(exe_path):
-            p = Path(exe_path)
-            game_folder_name = p.stem 
-            content_paks = p.parent / game_folder_name / "Content" / "Paks"
-            if content_paks.exists():
-                self.active_mods_path = content_paks / "~mods"
-            else:
-                self.active_mods_path = None
-        else:
+        if not exe_path or not os.path.exists(exe_path):
             self.active_mods_path = None
+            return
+
+        p = Path(exe_path).resolve()
+        
+        # Strategy 1: Check standard UE structure relative to exe
+        possible_roots = [p.parent]
+        # If in Binaries/Win64 or similar, root is higher up
+        for parent in p.parents:
+            if parent.name.lower() in ["win64", "binaries"]:
+                if parent.parent not in possible_roots:
+                    possible_roots.append(parent.parent)
+        
+        for root in possible_roots:
+            # Check for "Pagoda" folder or exe stem folder
+            for folder_name in ["Pagoda", p.stem]:
+                paks_dir = root / folder_name / "Content" / "Paks"
+                if paks_dir.exists():
+                    self.active_mods_path = paks_dir / "~mods"
+                    self.active_mods_path.mkdir(parents=True, exist_ok=True)
+                    return
+            
+            # Check if root ITSELF is the game folder (Content is a child)
+            paks_dir = root / "Content" / "Paks"
+            if paks_dir.exists():
+                self.active_mods_path = paks_dir / "~mods"
+                self.active_mods_path.mkdir(parents=True, exist_ok=True)
+                return
+
+        # Strategy 2: Look for any "Content/Paks" child in siblings
+        for root in possible_roots:
+            try:
+                for child in root.iterdir():
+                    if child.is_dir():
+                        paks_dir = child / "Content" / "Paks"
+                        if paks_dir.exists():
+                            self.active_mods_path = paks_dir / "~mods"
+                            self.active_mods_path.mkdir(parents=True, exist_ok=True)
+                            return
+            except Exception:
+                continue
+
+        self.active_mods_path = None
 
     def detect_steam_appid(self, exe_path):
         p = Path(exe_path)
@@ -139,6 +173,11 @@ class ModManagerCore:
                     return False, "error_storage_inside_game"
             except Exception:
                 pass
+
+        self.config["mods_storage_path"] = path
+        self.save_config()
+        return True, ""
+
 
     def delete_mod(self, folder_name):
         storage_path = self.config.get("mods_storage_path")

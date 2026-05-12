@@ -69,7 +69,7 @@ class MainWindow(QMainWindow):
         brand_layout = QVBoxLayout()
         self.brand_title = QLabel("MOD MANAGER")
         self.brand_title.setStyleSheet(f"color: {NeonStyle.ACCENT}; font-weight: bold; font-size: 14pt; letter-spacing: 2px;")
-        self.brand_sub = QLabel("V7.1 // STABLE")
+        self.brand_sub = QLabel("V7.5 // STABLE")
         self.brand_sub.setStyleSheet(f"color: {NeonStyle.ACCENT_PURPLE}; font-size: 8pt; font-weight: bold; letter-spacing: 1px;")
         brand_layout.addWidget(self.brand_title)
         brand_layout.addWidget(self.brand_sub)
@@ -357,7 +357,8 @@ class MainWindow(QMainWindow):
 
     def on_select_exe(self):
         t = TEXTS[self.lang]
-        path, _ = QFileDialog.getOpenFileName(self, t["msg_select_exe"], "", f"Pagoda.exe; {t['file_type_archives']}")
+        path, _ = QFileDialog.getOpenFileName(self, t["msg_select_exe"], "", 
+                                              f"{t['file_type_exe']};; {t['file_type_archives']}")
         if path:
             valid = self.core.set_exe_path(path)
             self.exe_edit.setText(path)
