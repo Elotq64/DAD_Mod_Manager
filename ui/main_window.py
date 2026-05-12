@@ -374,8 +374,17 @@ class MainWindow(QMainWindow):
         if path:
             success, error_key = self.core.set_storage_path(path)
             if not success:
-                QMessageBox.critical(self, t["msg_error_title"], t.get(error_key, error_key))
-                return
+                if error_key == "error_storage_inside_game":
+                    res = QMessageBox.warning(self, t["msg_error_title"], t["msg_storage_bypass_warning"], 
+                                             QMessageBox.Yes | QMessageBox.No)
+                    if res == QMessageBox.Yes:
+                        # Bypass the check
+                        self.core.set_storage_path(path, force=True)
+                    else:
+                        return
+                else:
+                    QMessageBox.critical(self, t["msg_error_title"], t.get(error_key, error_key))
+                    return
                 
             self.storage_edit.setText(path)
             self.check_migration()

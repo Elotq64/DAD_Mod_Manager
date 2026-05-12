@@ -142,34 +142,17 @@ class ModManagerCore:
         self.save_config()
         return self.active_mods_path is not None
 
-    def set_storage_path(self, path):
-        # Validation: Storage path should NOT be inside the game directory
-        exe_path = self.config.get("exe_path")
-        if exe_path:
+    def set_storage_path(self, path, force=False):
+        # Validation: Storage path should NOT be inside folders typically used by the game
+        if not force:
             try:
-                # Try to get the root of the game. 
-                # Usually: SteamLibrary/steamapps/common/GameName/
-                # exe is in GameName/Pagoda/Binaries/Win64/
-                p = Path(exe_path).resolve()
                 storage_p = Path(path).resolve()
+                # Check if current folder or parent folder has restricted names
+                # This prevents users from selecting the game's ~mods folder or similar as storage
+                restricted = {"paks", "mods", "~mods"}
+                folders_to_check = [storage_p.name.lower(), storage_p.parent.name.lower()]
                 
-                # Check parents. If any parent is 'common', the game root is the child of 'common'
-                game_root = None
-                for parent in p.parents:
-                    if parent.name.lower() == "common":
-                        # The game folder is the one right under 'common'
-                        for c in p.parents:
-                            if c.parent == parent:
-                                game_root = c
-                                break
-                        break
-                
-                if not game_root:
-                    # Fallback: assume root is 2 levels up from exe (GameName/Binaries/Win64)
-                    game_root = p.parents[2] if len(p.parents) > 2 else p.parent
-                
-                # If storage_p is equal to or a subpath of game_root
-                if storage_p == game_root or game_root in storage_p.parents:
+                if any(f in restricted for f in folders_to_check):
                     return False, "error_storage_inside_game"
             except Exception:
                 pass
