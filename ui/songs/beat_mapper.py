@@ -25,21 +25,26 @@ class WaveformWorker(QThread):
         self.finished.emit(data)
 
 class DetectWorker(QThread):
-    finished = Signal(float)
+    finished = Signal(dict)
+    progress = Signal(int)
     
     def __init__(self, audio_path):
         super().__init__()
         self.audio_path = audio_path
         
     def run(self):
-        bpm = BpmAnalyzer.detect_bpm(self.audio_path)
-        self.finished.emit(bpm if bpm else 0.0)
+        res = BpmAnalyzer.analyze_audio(self.audio_path, progress_callback=self.progress.emit)
+        self.finished.emit(res if res else {})
 
 class LoadingOverlay(QWidget):
     def __init__(self, parent=None, text="LOADING..."):
         super().__init__(parent)
         self.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.text = text
+        
+    def update_text(self, text):
+        self.text = text
+        self.update()
         
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -387,9 +392,119 @@ class CalibrationDialog(QDialog):
         self.player.stop()
         super().done(result)
 
-    def closeEvent(self, event):
-        self.player.stop()
-        super().closeEvent(event)
+class AnalysisResultDialog(QDialog):
+    def __init__(self, data, lang="en", parent=None):
+        super().__init__(parent)
+        self.data = data
+        self.t = TEXTS[lang]
+        
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        self.setFixedSize(450, 500)
+        
+        self.init_ui()
+        
+    def init_ui(self):
+        self.container = QWidget(self)
+        self.container.setObjectName("ResultContainer")
+        self.container.setFixedSize(450, 500)
+        self.setStyleSheet(NeonStyle.QSS + f"""
+            #ResultContainer {{ 
+                background-color: #0d0d0d; 
+                border: 2px solid {NeonStyle.ACCENT}; 
+                border-radius: 15px;
+            }}
+            QLabel#Title {{ font-size: 18pt; font-weight: bold; color: {NeonStyle.ACCENT}; }}
+            QLabel#ConfLabel {{ font-size: 10pt; color: {NeonStyle.TEXT_DIM}; }}
+            QLabel#Warning {{ color: {NeonStyle.DANGER}; font-size: 9pt; }}
+        """)
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0,0,0,0)
+        layout.addWidget(self.container)
+        
+        main_layout = QVBoxLayout(self.container)
+        main_layout.setContentsMargins(30, 30, 30, 30)
+        main_layout.setSpacing(20)
+        
+        title = QLabel(self.t["analysis_results_title"])
+        title.setObjectName("Title")
+        title.setAlignment(Qt.AlignCenter)
+        main_layout.addWidget(title)
+        
+        # Results Grid
+        grid = QVBoxLayout()
+        grid.setSpacing(15)
+        
+        self._add_row(grid, self.t["detected_bpm"], f"{self.data['bpm']} BPM")
+        self._add_row(grid, self.t["detected_offset"], f"{int(self.data['offset'])} MS")
+        
+        # Confidence Bar
+        conf_layout = QVBoxLayout()
+        conf_layout.setSpacing(5)
+        conf_val = self.data['confidence']
+        conf_label = QLabel(f"{self.t['confidence']} {int(conf_val)}%")
+        conf_label.setObjectName("ConfLabel")
+        conf_layout.addWidget(conf_label)
+        
+        self.progress_bar = QFrame()
+        self.progress_bar.setFixedHeight(8)
+        color = NeonStyle.SUCCESS if conf_val > 75 else NeonStyle.ACCENT if conf_val > 40 else NeonStyle.DANGER
+        self.progress_bar.setStyleSheet(f"""
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                stop:0 {color}, stop:{conf_val/100.0} {color}, 
+                stop:{conf_val/100.0} #222, stop:1 #222);
+            border-radius: 4px;
+        """)
+        conf_layout.addWidget(self.progress_bar)
+        grid.addLayout(conf_layout)
+        
+        main_layout.addLayout(grid)
+        
+        # Warnings
+        if self.data['warnings'] or conf_val < 50:
+            warn_container = QVBoxLayout()
+            warn_container.setSpacing(5)
+            if conf_val < 50:
+                l = QLabel(f"⚠️ {self.t['low_confidence_warn']}")
+                l.setObjectName("Warning")
+                l.setWordWrap(True)
+                warn_container.addWidget(l)
+            for w in self.data['warnings']:
+                l = QLabel(f"• {self.t.get(w, w)}")
+                l.setObjectName("Warning")
+                l.setWordWrap(True)
+                warn_container.addWidget(l)
+            main_layout.addLayout(warn_container)
+        
+        main_layout.addStretch()
+        
+        # Buttons
+        btns = QHBoxLayout()
+        btns.setSpacing(15)
+        
+        self.apply_btn = QPushButton(self.t["apply_results"])
+        self.apply_btn.setObjectName("AccentButton")
+        self.apply_btn.setMinimumHeight(45)
+        self.apply_btn.clicked.connect(self.accept)
+        
+        self.cancel_btn = QPushButton(self.t["cancel_btn"])
+        self.cancel_btn.setMinimumHeight(45)
+        self.cancel_btn.clicked.connect(self.reject)
+        
+        btns.addWidget(self.cancel_btn)
+        btns.addWidget(self.apply_btn)
+        main_layout.addLayout(btns)
+
+    def _add_row(self, layout, key, val):
+        row = QHBoxLayout()
+        k = QLabel(key)
+        k.setStyleSheet(f"color: {NeonStyle.TEXT_DIM}; font-size: 11pt;")
+        v = QLabel(val)
+        v.setStyleSheet("color: white; font-size: 13pt; font-weight: bold;")
+        row.addWidget(k)
+        row.addStretch()
+        row.addWidget(v)
+        layout.addLayout(row)
 
 class BeatMapperDialog(QDialog):
     def __init__(self, song, lang="en", parent=None):
@@ -672,28 +787,27 @@ class BeatMapperDialog(QDialog):
     def run_autodetect(self):
         self.loading_detect.show()
         worker = DetectWorker(self.audio_path)
+        worker.progress.connect(lambda p: self.loading_detect.update_text(f"{self.t['detecting_msg']} {p}%"))
         worker.finished.connect(self.on_autodetect_finished)
         self.workers.append(worker)
         worker.start()
 
-    def on_autodetect_finished(self, bpm):
+    def on_autodetect_finished(self, data):
         sender = self.sender()
         if sender in self.workers:
             self.workers.remove(sender)
             
         self.loading_detect.hide()
-        if bpm > 0:
-            bpm = round(bpm, 2)
-            res = QMessageBox.question(
-                self, self.t["autodetect"], 
-                f"Detected BPM: {bpm}\n\nDo you want to apply this tempo?",
-                QMessageBox.Yes | QMessageBox.No
-            )
-            if res == QMessageBox.Yes:
-                self.tempo = bpm
+        self.loading_detect.update_text(self.t['detecting_msg']) # Reset
+        
+        if data and data.get("bpm"):
+            dlg = AnalysisResultDialog(data, self.lang, self)
+            if dlg.exec():
+                self.tempo = data["bpm"]
+                self.beat_offset = data["offset"]
                 self.update_waveform_meta()
         else:
-            QMessageBox.warning(self, self.t["autodetect"], "Could not detect BPM.")
+            QMessageBox.warning(self, self.t["autodetect"], "Could not analyze audio.")
 
     def adjust_tempo(self):
         from PySide6.QtWidgets import QInputDialog

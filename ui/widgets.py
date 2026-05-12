@@ -287,6 +287,12 @@ class ModListHeader(QWidget):
         self.rename_lbl.setAlignment(Qt.AlignCenter)
         self.layout.addWidget(self.rename_lbl, 0, Qt.AlignVCenter)
         
+        self.delete_lbl = QLabel(t["header_mod_delete"])
+        self.delete_lbl.setStyleSheet(style)
+        self.delete_lbl.setFixedWidth(40)
+        self.delete_lbl.setAlignment(Qt.AlignCenter)
+        self.layout.addWidget(self.delete_lbl, 0, Qt.AlignVCenter)
+        
         self.status_lbl = QLabel(t["header_mod_status"])
         self.status_lbl.setStyleSheet(style)
         self.status_lbl.setFixedWidth(60)
@@ -299,11 +305,13 @@ class ModListHeader(QWidget):
         self.name_lbl.setText(t["header_mod_name"])
         self.type_lbl.setText(t["header_mod_type"])
         self.rename_lbl.setText(t["header_mod_rename"])
+        self.delete_lbl.setText(t["header_mod_delete"])
         self.status_lbl.setText(t["header_mod_status"])
 
 class ModItemWidget(QWidget):
     toggled = Signal(bool)
     rename_requested = Signal()
+    delete_requested = Signal()
     type_changed = Signal(str)
 
     def __init__(self, mod_metadata, is_active=False, lang="en", parent=None):
@@ -345,6 +353,15 @@ class ModItemWidget(QWidget):
         self.rename_btn.setToolTip(t.get("tooltip_rename", "Renombrar Mod"))
         self.rename_btn.clicked.connect(self.rename_requested.emit)
         self.layout.addWidget(self.rename_btn, 0, Qt.AlignVCenter)
+
+        # Delete Button
+        self.delete_btn = QPushButton("🗑")
+        self.delete_btn.setFixedSize(40, 36)
+        self.delete_btn.setCursor(Qt.PointingHandCursor)
+        self.delete_btn.setToolTip(t.get("header_mod_delete", "Borrar Mod"))
+        self.delete_btn.setStyleSheet(f"QPushButton:hover {{ color: {NeonStyle.DANGER}; }}")
+        self.delete_btn.clicked.connect(self.delete_requested.emit)
+        self.layout.addWidget(self.delete_btn, 0, Qt.AlignVCenter)
 
         # Toggle Switch (wrapped in fixed-width widget for header alignment)
         self.switch_container = QWidget()

@@ -140,9 +140,20 @@ class ModManagerCore:
             except Exception:
                 pass
 
-        self.config["mods_storage_path"] = path
-        self.save_config()
-        return True, None
+    def delete_mod(self, folder_name):
+        storage_path = self.config.get("mods_storage_path")
+        if not storage_path: return
+        
+        mod_path = Path(storage_path) / folder_name
+        if mod_path.exists() and mod_path.is_dir():
+            import shutil
+            shutil.rmtree(mod_path)
+            
+            # Remove from active_mods if present
+            active = self.config.get("active_mods", [])
+            if folder_name in active:
+                active.remove(folder_name)
+                self.save_config()
 
     def get_available_mods(self):
         storage_path_str = self.config.get("mods_storage_path")

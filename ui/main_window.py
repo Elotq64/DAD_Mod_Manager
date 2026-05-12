@@ -57,7 +57,7 @@ class MainWindow(QMainWindow):
         brand_layout = QVBoxLayout()
         self.brand_title = QLabel("MOD MANAGER")
         self.brand_title.setStyleSheet(f"color: {NeonStyle.ACCENT}; font-weight: bold; font-size: 14pt; letter-spacing: 2px;")
-        self.brand_sub = QLabel("V6.0 // STABLE")
+        self.brand_sub = QLabel("V7.1 // STABLE")
         self.brand_sub.setStyleSheet(f"color: {NeonStyle.ACCENT_PURPLE}; font-size: 8pt; font-weight: bold; letter-spacing: 1px;")
         brand_layout.addWidget(self.brand_title)
         brand_layout.addWidget(self.brand_sub)
@@ -112,6 +112,11 @@ class MainWindow(QMainWindow):
         self.add_mod_btn.setMinimumHeight(40)
         self.add_mod_btn.clicked.connect(self.on_add_mod)
         mod_actions_layout.addWidget(self.add_mod_btn)
+        
+        self.bulk_import_btn = QPushButton("IMPORTAR VARIOS MODS")
+        self.bulk_import_btn.setMinimumHeight(40)
+        self.bulk_import_btn.clicked.connect(self.on_bulk_import_mods)
+        mod_actions_layout.addWidget(self.bulk_import_btn)
         
         self.actions_stack.addWidget(self.mod_actions_widget)
         
@@ -294,6 +299,7 @@ class MainWindow(QMainWindow):
         self.apply_btn.setText(t["apply_btn"])
         self.refresh_btn.setText(t["refresh_btn"])
         self.add_mod_btn.setText(t["add_mod_btn"])
+        self.bulk_import_btn.setText(t["bulk_import_btn"])
         self.play_btn.setText(t["play_btn"])
         
         self.mod_header.retranslate(self.lang)
@@ -357,6 +363,7 @@ class MainWindow(QMainWindow):
             
             # Connect signals
             item_widget.rename_requested.connect(lambda f=folder_name: self.on_rename_mod(f))
+            item_widget.delete_requested.connect(lambda f=folder_name, n=mod_data["name"]: self.on_delete_mod(f, n))
             
             # Ensure item height is sufficient
             item.setSizeHint(item_widget.sizeHint())
@@ -430,6 +437,19 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, t["msg_error_title"], error_msg)
             self.set_status(t["status_error"])
 
+    def on_delete_mod(self, folder_name, display_name):
+        t = TEXTS[self.lang]
+        msg = t["msg_confirm_delete_text"].format(display_name)
+        res = QMessageBox.question(self, t["msg_confirm_delete_title"], msg,
+                                 QMessageBox.Yes | QMessageBox.No)
+        
+        if res == QMessageBox.Yes:
+            try:
+                self.core.delete_mod(folder_name)
+                self.refresh_all()
+            except Exception as e:
+                QMessageBox.critical(self, t["msg_error_title"], f"Error deleting mod: {e}")
+
     def on_add_mod(self):
         t = TEXTS[self.lang]
         file_path, _ = QFileDialog.getOpenFileName(
@@ -461,6 +481,56 @@ class MainWindow(QMainWindow):
                 
                 QMessageBox.critical(self, t["msg_error_title"], error_msg)
                 self.set_status(t["status_error"])
+
+    def on_bulk_import_mods(self):
+        t = TEXTS[self.lang]
+        file_paths, _ = QFileDialog.getOpenFileNames(
+            self, t["bulk_import_title"], "", t["file_type_archives"]
+        )
+        if not file_paths:
+            return
+
+        total = len(file_paths)
+        for i, file_path in enumerate(file_paths):
+            default_name = os.path.splitext(os.path.basename(file_path))[0]
+            # Show which one we are on in the title
+            title_prefix = f"({i+1}/{total}) "
+            
+            from ui.widgets import AddModDialog
+            dialog = AddModDialog(default_name, self.lang, self)
+            dialog.setWindowTitle(title_prefix + t["add_mod_title"])
+            
+            if dialog.exec():
+                mod_name, mod_type = dialog.get_data()
+                if not mod_name:
+                    continue
+                
+                try:
+                    self.set_status(f"{t['status_sync']} ({i+1}/{total})") 
+                    self.core.install_mod(file_path, mod_name, mod_type)
+                except Exception as e:
+                    error_msg = str(e)
+                    if "rarfile" in error_msg:
+                        error_msg = t["error_rar_library"]
+                    elif "No valid files" in error_msg:
+                        error_msg = t["error_no_valid_files"]
+                    elif "Mod already exists" in error_msg:
+                        error_msg = f"{mod_name}: {t['error_already_exists']}"
+                    
+                    QMessageBox.critical(self, t["msg_error_title"], f"{os.path.basename(file_path)}:\n{error_msg}")
+            else:
+                # User cancelled this specific mod, ask if they want to cancel the whole batch
+                if i < total - 1:
+                    res = QMessageBox.question(
+                        self, t["cancel_btn"],
+                        "¿Deseas cancelar el resto de la importación?\nDo you want to cancel the rest of the import?",
+                        QMessageBox.Yes | QMessageBox.No
+                    )
+                    if res == QMessageBox.Yes:
+                        break
+        
+        self.refresh_all()
+        self.set_status(t["status_success"])
 
     def on_play(self):
         t = TEXTS[self.lang]

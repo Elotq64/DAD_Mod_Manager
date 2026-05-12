@@ -1,4 +1,4 @@
-# DEAD AS DISCO - Mod Manager (V6.0!)
+# DEAD AS DISCO - Mod Manager (V7.1!)
 
 ![Banner](src/assets/banner.jpg)
 
@@ -49,7 +49,7 @@ We provide pre-configured `.spec` files for a perfect build:
 ## Features
 
 - **Neon Dark Aesthetic**: Premium dark interface with Cyan and Purple accents.
-- **Beat Mapper (V6!)**: Advanced editor to sync your songs with surgical precision.
+- **Beat Mapper (V7!)**: Advanced editor to sync your songs with surgical precision.
 - **BPM Autodetection**: Automatically calculate the tempo of your tracks using AI-powered analysis.
 - **Dynamic Waveform**: High-precision visual rendering with zoom and panning support.
 - **Custom Tempo Sections**: Manage complex songs with multiple BPM changes in a single track.
