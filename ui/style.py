@@ -20,7 +20,7 @@ class NeonStyle:
 
     QWidget {{
         color: {TEXT_MAIN};
-        font-family: 'Segoe UI', sans-serif;
+        font-family: 'Segoe UI', 'Microsoft YaHei', 'Meiryo', sans-serif;
         font-size: 10pt;
     }}
     

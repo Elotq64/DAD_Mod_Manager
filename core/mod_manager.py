@@ -109,8 +109,40 @@ class ModManagerCore:
         return self.active_mods_path is not None
 
     def set_storage_path(self, path):
+        # Validation: Storage path should NOT be inside the game directory
+        exe_path = self.config.get("exe_path")
+        if exe_path:
+            try:
+                # Try to get the root of the game. 
+                # Usually: SteamLibrary/steamapps/common/GameName/
+                # exe is in GameName/Pagoda/Binaries/Win64/
+                p = Path(exe_path).resolve()
+                storage_p = Path(path).resolve()
+                
+                # Check parents. If any parent is 'common', the game root is the child of 'common'
+                game_root = None
+                for parent in p.parents:
+                    if parent.name.lower() == "common":
+                        # The game folder is the one right under 'common'
+                        for c in p.parents:
+                            if c.parent == parent:
+                                game_root = c
+                                break
+                        break
+                
+                if not game_root:
+                    # Fallback: assume root is 2 levels up from exe (GameName/Binaries/Win64)
+                    game_root = p.parents[2] if len(p.parents) > 2 else p.parent
+                
+                # If storage_p is equal to or a subpath of game_root
+                if storage_p == game_root or game_root in storage_p.parents:
+                    return False, "error_storage_inside_game"
+            except Exception:
+                pass
+
         self.config["mods_storage_path"] = path
         self.save_config()
+        return True, None
 
     def get_available_mods(self):
         storage_path_str = self.config.get("mods_storage_path")
@@ -222,7 +254,7 @@ class ModManagerCore:
     def migrate_mods(self, groups):
         storage_path_str = self.config.get("mods_storage_path")
         if not storage_path_str:
-            raise ValueError("Selecciona primero una carpeta de almacenamiento")
+            raise ValueError("No storage path configured")
         
         storage_path = Path(storage_path_str)
         migrated_count = 0
@@ -243,10 +275,10 @@ class ModManagerCore:
 
     def sync_mods(self, selected_mods):
         if not self.active_mods_path:
-            raise ValueError("Ruta del juego no válida.")
+            raise ValueError("Invalid game path.")
         storage_path_str = self.config.get("mods_storage_path")
         if not storage_path_str:
-            raise ValueError("Ruta de almacenamiento no válida.")
+            raise ValueError("Invalid storage path.")
         storage_path = Path(storage_path_str)
         
         if self.active_mods_path.exists():

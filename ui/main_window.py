@@ -196,6 +196,10 @@ class MainWindow(QMainWindow):
         storage_layout.addWidget(self.storage_btn)
         config_layout.addLayout(storage_layout)
         
+        self.storage_help_lbl = QLabel()
+        self.storage_help_lbl.setStyleSheet(f"color: {NeonStyle.TEXT_DIM}; font-size: 8pt; margin-top: -5px; margin-left: 2px;")
+        config_layout.addWidget(self.storage_help_lbl)
+        
         header_content_layout.addWidget(self.config_group)
         main_vbox.addWidget(self.header_section)
         
@@ -250,11 +254,18 @@ class MainWindow(QMainWindow):
             self.songs_page.refresh_songs()
 
     def toggle_language(self):
-        self.lang = "en" if self.lang == "es" else "es"
+        langs = list(TEXTS.keys())
+        try:
+            curr_idx = langs.index(self.lang)
+            self.lang = langs[(curr_idx + 1) % len(langs)]
+        except ValueError:
+            self.lang = "en"
+            
         self.core.config["language"] = self.lang
         self.core.save_config()
         self.retranslate_ui()
         self.refresh_all()
+        self.songs_page.refresh_songs()
 
     def retranslate_ui(self):
         t = TEXTS[self.lang]
@@ -277,6 +288,7 @@ class MainWindow(QMainWindow):
         self.config_group.setTitle(t["config_group"])
         self.exe_lbl.setText(t["exe_lbl"])
         self.storage_lbl.setText(t["storage_lbl"])
+        self.storage_help_lbl.setText(t["storage_help"])
         self.list_group.setTitle(t["mods_group"])
         
         self.apply_btn.setText(t["apply_btn"])
@@ -285,6 +297,7 @@ class MainWindow(QMainWindow):
         self.play_btn.setText(t["play_btn"])
         
         self.mod_header.retranslate(self.lang)
+        self.songs_page.retranslate_ui()
         
         self.set_status(t["status_ready"])
     
@@ -293,20 +306,25 @@ class MainWindow(QMainWindow):
 
     def on_select_exe(self):
         t = TEXTS[self.lang]
-        path, _ = QFileDialog.getOpenFileName(self, "Selecciona Pagoda.exe", "", "Ejecutable (Pagoda.exe);;Todos (*.exe)")
+        path, _ = QFileDialog.getOpenFileName(self, t["msg_select_exe"], "", f"Pagoda.exe; {t['file_type_archives']}")
         if path:
             valid = self.core.set_exe_path(path)
             self.exe_edit.setText(path)
             if not valid:
-                QMessageBox.critical(self, "Error", t["msg_error_path"])
+                QMessageBox.critical(self, t["msg_error_title"], t["msg_error_path"])
             else:
                 self.check_migration()
             self.refresh_all()
 
     def on_select_storage(self):
-        path = QFileDialog.getExistingDirectory(self, "Selecciona carpeta de almacenamiento")
+        t = TEXTS[self.lang]
+        path = QFileDialog.getExistingDirectory(self, t["msg_select_storage"])
         if path:
-            self.core.set_storage_path(path)
+            success, error_key = self.core.set_storage_path(path)
+            if not success:
+                QMessageBox.critical(self, t["msg_error_title"], t.get(error_key, error_key))
+                return
+                
             self.storage_edit.setText(path)
             self.check_migration()
             self.refresh_all()
@@ -316,15 +334,15 @@ class MainWindow(QMainWindow):
         groups = self.core.check_for_migration()
         if groups:
             if not self.core.config.get("mods_storage_path"): return
-            res = QMessageBox.question(self, "Migración", t["msg_migration"], 
+            res = QMessageBox.question(self, t["msg_migration_title"], t["msg_migration"], 
                                      QMessageBox.Yes | QMessageBox.No)
             if res == QMessageBox.Yes:
                 try:
                     count, warnings = self.core.migrate_mods(groups)
-                    QMessageBox.information(self, "Éxito", f"Migrados {count} mods.")
+                    QMessageBox.information(self, t["msg_success_title"], t["msg_migrated_count"].format(count))
                     self.refresh_all()
                 except Exception as e:
-                    QMessageBox.critical(self, "Error", str(e))
+                    QMessageBox.critical(self, t["msg_error_title"], str(e))
 
     def refresh_all(self):
         self.mod_list_widget.clear()
@@ -358,7 +376,7 @@ class MainWindow(QMainWindow):
             if self.core.rename_mod(old_name, new_name):
                 self.refresh_all()
             else:
-                QMessageBox.warning(self, "Error", "No se pudo renombrar el mod.")
+                QMessageBox.warning(self, t["msg_error_title"], t["msg_rename_error"])
 
     def on_apply(self):
         t = TEXTS[self.lang]
@@ -401,15 +419,21 @@ class MainWindow(QMainWindow):
             self.core.sync_mods(selected_mods)
             self.refresh_all()
             self.set_status(t["status_success"])
-            QMessageBox.information(self, "OK", t["status_success"])
+            QMessageBox.information(self, t["msg_ok"], t["status_success"])
         except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
+            error_msg = str(e)
+            if "Invalid game path" in error_msg:
+                error_msg = t["msg_error_path"]
+            elif "Invalid storage path" in error_msg:
+                error_msg = t["storage_lbl"] # Or a better one
+            
+            QMessageBox.critical(self, t["msg_error_title"], error_msg)
             self.set_status(t["status_error"])
 
     def on_add_mod(self):
         t = TEXTS[self.lang]
         file_path, _ = QFileDialog.getOpenFileName(
-            self, t["add_mod_title"], "", "Archives (*.zip *.rar)"
+            self, t["add_mod_title"], "", t["file_type_archives"]
         )
         if not file_path:
             return
@@ -435,19 +459,20 @@ class MainWindow(QMainWindow):
                 elif "Mod already exists" in error_msg:
                     error_msg = t["error_already_exists"]
                 
-                QMessageBox.critical(self, "Error", error_msg)
+                QMessageBox.critical(self, t["msg_error_title"], error_msg)
                 self.set_status(t["status_error"])
 
     def on_play(self):
+        t = TEXTS[self.lang]
         appid = self.core.config.get("steam_appid")
         exe = self.core.config.get("exe_path")
         try:
             if appid:
-                self.set_status(f"Iniciando vía Steam ({appid})...")
+                self.set_status(t["status_launching_steam"].format(appid=appid))
                 os.startfile(f"steam://run/{appid}")
             elif exe and os.path.exists(exe):
                 os.startfile(exe)
             else:
-                QMessageBox.warning(self, "Configuración incompleta", "Por favor, configura el ejecutable del juego.")
+                QMessageBox.warning(self, t["msg_config_incomplete_title"], t["msg_config_incomplete_text"])
         except Exception as e:
-            self.set_status(f"Error al lanzar: {e}")
+            self.set_status(t["status_launch_error"].format(e))

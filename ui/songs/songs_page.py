@@ -51,7 +51,9 @@ class LoadingDialog(QDialog):
         self.label.setAlignment(Qt.AlignCenter)
         self.label.setStyleSheet(f"color: white; font-size: 12pt; font-weight: bold;")
         
-        self.sub_label = QLabel("Please wait while we process your audio...")
+        # We need language here too, but it's passed in message usually.
+        # However sub_label is hardcoded English.
+        self.sub_label = QLabel(message) # Reuse message or pass another one
         self.sub_label.setAlignment(Qt.AlignCenter)
         self.sub_label.setStyleSheet(f"color: {NeonStyle.TEXT_DIM}; font-size: 9pt;")
         
@@ -61,8 +63,9 @@ class LoadingDialog(QDialog):
         layout.addStretch()
 
 class ImportSongDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, lang="en", parent=None):
         super().__init__(parent)
+        self.lang = lang
         self.start_pos = None
         self.result_type = None # 'file' or 'folder'
         
@@ -71,6 +74,8 @@ class ImportSongDialog(QDialog):
         self.init_ui()
 
     def init_ui(self):
+        from core.i18n import TEXTS
+        t = TEXTS[self.lang]
         self.container = QWidget(self)
         self.container.setObjectName("MainContainer")
         if self.parent():
@@ -85,7 +90,7 @@ class ImportSongDialog(QDialog):
         main_layout.setSpacing(0)
         
         self.title_bar = CustomTitleBar(self)
-        self.title_bar.title_label.setText(" IMPORT SONG")
+        self.title_bar.title_label.setText(f" {t['import_song_btn']}")
         self.title_bar.min_btn.hide()
         self.title_bar.lang_btn.hide()
         main_layout.addWidget(self.title_bar)
@@ -94,22 +99,22 @@ class ImportSongDialog(QDialog):
         content.setContentsMargins(30, 30, 30, 30)
         content.setSpacing(20)
         
-        msg = QLabel("How would you like to import a song?")
+        msg = QLabel(t["import_song_method_msg"])
         msg.setStyleSheet("font-size: 11pt; font-weight: bold;")
         content.addWidget(msg)
         
-        self.btn_file = QPushButton("IMPORT FILE (AUDIO/ZIP)")
+        self.btn_file = QPushButton(t["import_song_file_zip"])
         self.btn_file.setObjectName("AccentButton")
         self.btn_file.setMinimumHeight(45)
         self.btn_file.clicked.connect(self.select_file)
         content.addWidget(self.btn_file)
         
-        self.btn_folder = QPushButton("IMPORT FOLDER")
+        self.btn_folder = QPushButton(t["import_song_folder"])
         self.btn_folder.setMinimumHeight(45)
         self.btn_folder.clicked.connect(self.select_folder)
         content.addWidget(self.btn_folder)
         
-        self.btn_cancel = QPushButton("CANCEL")
+        self.btn_cancel = QPushButton(t["cancel_btn"])
         self.btn_cancel.clicked.connect(self.reject)
         content.addWidget(self.btn_cancel)
         
@@ -141,13 +146,17 @@ class SongItemWidget(QWidget):
     map_requested = Signal()
     delete_requested = Signal()
     play_requested = Signal()
+    launch_requested = Signal()
 
-    def __init__(self, song, parent=None):
+    def __init__(self, song, lang="en", parent=None):
         super().__init__(parent)
         self.song = song
+        self.lang = lang
         self.init_ui()
 
     def init_ui(self):
+        from core.i18n import TEXTS
+        t = TEXTS[self.lang]
         layout = QHBoxLayout(self)
         layout.setContentsMargins(20, 8, 20, 8)
         layout.setSpacing(15)
@@ -175,31 +184,20 @@ class SongItemWidget(QWidget):
         self.play_btn.clicked.connect(self.play_requested.emit)
         layout.addWidget(self.play_btn)
         
-        self.edit_btn = QPushButton("EDIT")
+        self.edit_btn = QPushButton(t.get("header_mod_rename", "EDIT"))
         self.edit_btn.setFixedSize(80, 36)
         self.edit_btn.setCursor(Qt.PointingHandCursor)
         self.edit_btn.clicked.connect(self.edit_requested.emit)
         layout.addWidget(self.edit_btn)
         
-        self.map_btn = QPushButton("MAP")
+        self.map_btn = QPushButton(t.get("map_btn", "MAP"))
         self.map_btn.setObjectName("AccentButton")
         self.map_btn.setFixedSize(80, 36)
         self.map_btn.setCursor(Qt.PointingHandCursor)
         self.map_btn.clicked.connect(self.map_requested.emit)
         layout.addWidget(self.map_btn)
         
-        from core.i18n import TEXTS
-        from ui.main_window import MainWindow
-        lang = "en"
-        curr = self.parent()
-        while curr:
-            if isinstance(curr, MainWindow):
-                lang = curr.lang
-                break
-            curr = curr.parent()
-        self.map_btn.setText(TEXTS[lang].get("map_btn", "MAP"))
-        
-        self.delete_btn = QPushButton("DELETE")
+        self.delete_btn = QPushButton("🗑")
         self.delete_btn.setObjectName("DeleteButton")
         self.delete_btn.setStyleSheet(f"""
             QPushButton:hover {{ 
@@ -275,13 +273,24 @@ class SongsPage(QWidget):
         layout.addWidget(self.songs_list)
 
     def refresh_songs(self):
+        from core.i18n import TEXTS
+        from ui.main_window import MainWindow
+        lang = "en"
+        curr = self.parent()
+        while curr:
+            if isinstance(curr, MainWindow):
+                lang = curr.lang
+                break
+            curr = curr.parent()
+        t = TEXTS[lang]
+        
         self.player.stop()
         self.songs_list.clear()
         songs = self.scanner.scan()
         
         if not songs:
             item = QListWidgetItem(self.songs_list)
-            placeholder = QLabel("No custom songs found. Import some to get started!")
+            placeholder = QLabel(t["songs_placeholder"])
             placeholder.setAlignment(Qt.AlignCenter)
             placeholder.setStyleSheet(f"color: {NeonStyle.TEXT_DIM}; padding: 40px;")
             item.setSizeHint(QSize(100, 100))
@@ -291,7 +300,7 @@ class SongsPage(QWidget):
 
         for song in songs:
             item = QListWidgetItem(self.songs_list)
-            widget = SongItemWidget(song)
+            widget = SongItemWidget(song, lang=lang)
             widget.edit_requested.connect(lambda s=song: self.on_edit_song(s))
             widget.map_requested.connect(lambda s=song: self.on_beat_map(s))
             widget.delete_requested.connect(lambda s=song: self.on_delete_song(s))
@@ -331,21 +340,21 @@ class SongsPage(QWidget):
 
         songs = self.scanner.scan()
         if not songs:
-            QMessageBox.information(self, "Export", "No songs to export.")
+            QMessageBox.information(self, t["msg_export_title"], t["msg_no_songs_export"])
             return
 
         # For simplicity, we export all. We could add a selection dialog here if requested.
-        target_zip, _ = QFileDialog.getSaveFileName(self, "Export Songs", "SharedSongs.zip", "ZIP Archives (*.zip)")
+        target_zip, _ = QFileDialog.getSaveFileName(self, t["export_songs_title"], "SharedSongs.zip", t["file_type_zip"])
         if not target_zip:
             return
 
         try:
-            loading = LoadingDialog("EXPORTING...", self)
-            loading.sub_label.setText("Packaging songs into ZIP archive...")
+            loading = LoadingDialog(t.get("shared_export_btn", "EXPORT MY SONGS"), self)
+            loading.sub_label.setText(t.get("wait_msg", "Please wait..."))
             loading.show()
             QTimer.singleShot(100, lambda: self._do_export(target_zip, songs, loading, t))
         except Exception as e:
-            QMessageBox.critical(self, "Export Error", str(e))
+            QMessageBox.critical(self, t["msg_error_title"], str(e))
 
     def _do_export(self, zip_path, songs, loading, t):
         try:
@@ -384,7 +393,7 @@ class SongsPage(QWidget):
         strategies = {}
         
         if conflicts:
-            dialog = ConflictResolverDialog(conflicts, self)
+            dialog = ConflictResolverDialog(conflicts, lang=lang, parent=self)
             if dialog.exec():
                 strategies = dialog.get_results()
             else:
@@ -453,19 +462,30 @@ class SongsPage(QWidget):
                 self.current_playing_widget = None
 
     def on_import(self):
+        from ui.main_window import MainWindow
+        lang = "en"
+        curr = self.parent()
+        while curr:
+            if isinstance(curr, MainWindow):
+                lang = curr.lang
+                break
+            curr = curr.parent()
+            
         self.player.stop() # Stop any active preview
-        dialog = ImportSongDialog(self)
+        from core.i18n import TEXTS
+        t = TEXTS[lang]
+        dialog = ImportSongDialog(lang=lang, parent=self)
         if dialog.exec():
             if dialog.result_type == 'file':
                 path, _ = QFileDialog.getOpenFileName(
-                    self, "Select Song File", "", 
-                    "All Supported (*.zip *.mp3 *.wav *.ogg);;ZIP Archives (*.zip);;Audio Files (*.mp3 *.wav *.ogg)"
+                    self, t.get("import_song_file_zip", "Select Song File"), "", 
+                    f"All Supported (*.zip *.mp3 *.wav *.ogg);;{t.get('file_type_zip', 'ZIP Archives (*.zip)')};;Audio Files (*.mp3 *.wav *.ogg)"
                 )
                 if path:
                     # Collect metadata before importing if it's a direct audio file
                     if not path.lower().endswith('.zip'):
                         name_hint = os.path.splitext(os.path.basename(path))[0]
-                        meta_dialog = SongMetadataDialog(initial_data={"songName": name_hint}, parent=self)
+                        meta_dialog = SongMetadataDialog(initial_data={"songName": name_hint}, lang=lang, parent=self)
                         if meta_dialog.exec():
                             custom_meta = meta_dialog.get_metadata()
                             self._start_import_worker(path, custom_meta)
@@ -512,8 +532,17 @@ class SongsPage(QWidget):
             QMessageBox.critical(self, "Import Error", msg)
 
     def on_edit_song(self, song):
+        from ui.main_window import MainWindow
+        lang = "en"
+        curr = self.parent()
+        while curr:
+            if isinstance(curr, MainWindow):
+                lang = curr.lang
+                break
+            curr = curr.parent()
+            
         self.player.stop() # Stop any active preview
-        dialog = SongMetadataDialog(song=song, parent=self)
+        dialog = SongMetadataDialog(song=song, lang=lang, parent=self)
         if dialog.exec():
             new_data = dialog.get_metadata()
             success, result = SongEditor.update_song_metadata(song, new_data)
@@ -539,9 +568,20 @@ class SongsPage(QWidget):
             self.refresh_songs()
 
     def on_delete_song(self, song):
+        from core.i18n import TEXTS
+        from ui.main_window import MainWindow
+        lang = "en"
+        curr = self.parent()
+        while curr:
+            if isinstance(curr, MainWindow):
+                lang = curr.lang
+                break
+            curr = curr.parent()
+        t = TEXTS[lang]
+        
         res = QMessageBox.question(
-            self, "Confirm Deletion", 
-            f"Are you sure you want to delete '{song.song_name}'?\n\nThis will remove the folder from the game's directory.",
+            self, t["msg_confirm_delete_title"], 
+            t["msg_confirm_delete_song"].format(song.song_name),
             QMessageBox.Yes | QMessageBox.No
         )
         if res == QMessageBox.Yes:
@@ -549,5 +589,5 @@ class SongsPage(QWidget):
             if success:
                 self.refresh_songs()
             else:
-                QMessageBox.critical(self, "Error", msg)
+                QMessageBox.critical(self, t["msg_error_title"], msg)
 

@@ -3,9 +3,12 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
 from PySide6.QtCore import Qt
 
 class ConflictResolverDialog(QDialog):
-    def __init__(self, conflicts, parent=None):
+    def __init__(self, conflicts, lang="en", parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Song Conflict Resolution")
+        self.lang = lang
+        from core.i18n import TEXTS
+        t = TEXTS[self.lang]
+        self.setWindowTitle(t["conflict_dialog_title"])
         self.setMinimumWidth(500)
         self.setMinimumHeight(400)
         self.conflicts = conflicts # { folder_name: [reasons] }
@@ -14,9 +17,11 @@ class ConflictResolverDialog(QDialog):
         self.init_ui()
 
     def init_ui(self):
+        from core.i18n import TEXTS
+        t = TEXTS[self.lang]
         layout = QVBoxLayout(self)
         
-        header = QLabel("The following songs already exist or have matching IDs.\nChoose how to proceed for each:")
+        header = QLabel(t["conflict_header"])
         header.setStyleSheet("font-weight: bold; margin-bottom: 10px;")
         layout.addWidget(header)
 
@@ -34,19 +39,19 @@ class ConflictResolverDialog(QDialog):
             item_layout.setContentsMargins(10, 10, 10, 10)
             item_widget.setStyleSheet("background-color: #1a1a1a; border-radius: 5px; margin-bottom: 5px;")
             
-            title = QLabel(f"Song: {folder}")
+            title = QLabel(t["conflict_song_lbl"].format(folder))
             title.setStyleSheet("font-weight: bold; color: #bc00ff;")
             item_layout.addWidget(title)
             
-            reason_txt = "Reasons: " + ", ".join([r.replace('_', ' ') for r in reasons])
+            reason_txt = t["conflict_reasons_lbl"].format(", ".join([r.replace('_', ' ') for r in reasons]))
             item_layout.addWidget(QLabel(reason_txt))
             
             opts_layout = QHBoxLayout()
             group = QButtonGroup(item_widget)
             
-            rb_replace = QRadioButton("Replace")
-            rb_new = QRadioButton("Add as New")
-            rb_skip = QRadioButton("Skip")
+            rb_replace = QRadioButton(t["replace_opt"])
+            rb_new = QRadioButton(t["add_new_opt"])
+            rb_skip = QRadioButton(t["skip_opt"])
             
             # Default to 'new' if it's just an ID collision, 'replace' if the folder matches?
             # User requirement says present options.
@@ -70,8 +75,8 @@ class ConflictResolverDialog(QDialog):
 
         # Bulk Actions
         bulk_layout = QHBoxLayout()
-        btn_all_replace = QPushButton("All Replace")
-        btn_all_new = QPushButton("All New")
+        btn_all_replace = QPushButton(t["all_replace_btn"])
+        btn_all_new = QPushButton(t["all_new_btn"])
         
         btn_all_replace.clicked.connect(lambda: self.set_all(0))
         btn_all_new.clicked.connect(lambda: self.set_all(1))
@@ -82,10 +87,10 @@ class ConflictResolverDialog(QDialog):
 
         # Bottom Buttons
         btns = QHBoxLayout()
-        self.cancel_btn = QPushButton("Cancel All")
+        self.cancel_btn = QPushButton(t["cancel_all_btn"])
         self.cancel_btn.clicked.connect(self.reject)
         
-        self.import_btn = QPushButton("Process Import")
+        self.import_btn = QPushButton(t["process_import_btn"])
         self.import_btn.setStyleSheet("background-color: #bc00ff; color: white; font-weight: bold; padding: 8px;")
         self.import_btn.clicked.connect(self.collect_and_accept)
         
